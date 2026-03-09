@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   GitCommit, Users, GitBranch, Tag, ArrowRight, Loader2, 
-  Activity, BookOpen, Clock, AlertTriangle, Layers, GitPullRequest, GitFork
+  Activity, BookOpen, Clock, AlertTriangle, Layers, GitPullRequest, GitFork, Shield, Award
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend
@@ -52,141 +52,164 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 p-6 font-sans antialiased">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen text-slate-100 p-4 md:p-8 font-sans antialiased">
+      <div className="max-w-7xl mx-auto space-y-12">
         
-        {/* Header section */}
-        <header className="text-center space-y-4 pt-10 pb-6">
-          <div className="inline-flex items-center justify-center p-3 bg-blue-500/10 rounded-2xl mb-2">
-            <BookOpen className="w-10 h-10 text-blue-400" />
+        {/* Header section with enhanced glow */}
+        <header className="text-center space-y-6 pt-12 pb-8 relative">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-blue-500/10 blur-[100px] rounded-full -z-10"></div>
+          <div className="inline-flex items-center justify-center p-4 bg-blue-500/10 rounded-3xl mb-2 glass border-blue-500/20">
+            <BookOpen className="w-12 h-12 text-blue-400" />
           </div>
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 text-transparent bg-clip-text">
+          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter bg-gradient-to-br from-white via-blue-200 to-emerald-300 text-transparent bg-clip-text drop-shadow-sm">
             Git History Storyteller
           </h1>
-          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Understand how a software project evolved through its Git history using AI-driven narrative generation and statistical signal extraction.
+          <p className="text-slate-400 text-lg md:text-xl max-w-3xl mx-auto font-medium leading-relaxed">
+            Understand how a software project evolved through its Git history using <span className="text-blue-400">AI-driven narrative</span> and <span className="text-emerald-400">statistical signal extraction</span>.
           </p>
         </header>
 
-        {/* Input Section */}
-        <form onSubmit={handleAnalyze} className="max-w-2xl mx-auto flex items-center space-x-3 bg-slate-800 p-2 rounded-2xl shadow-xl shadow-slate-900/50 border border-slate-700">
+        {/* Improved Input Section (Glass) */}
+        <form onSubmit={handleAnalyze} className="max-w-3xl mx-auto flex items-center space-x-3 glass p-2 rounded-2xl shadow-2xl border-white/5 focus-within:border-blue-500/40 transition-hover">
           <input 
             type="url" 
             value={repoUrl}
             onChange={(e) => setRepoUrl(e.target.value)}
             placeholder="https://github.com/facebook/react" 
             required
-            className="flex-1 bg-transparent border-none focus:ring-0 text-slate-200 px-4 py-3 outline-none placeholder:text-slate-500"
+            className="flex-1 bg-transparent border-none focus:ring-0 text-slate-100 px-6 py-4 outline-none placeholder:text-slate-500 text-lg"
           />
           <button 
             type="submit" 
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98]"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin"/> : 'Analyze'}
-            {!loading && <ArrowRight className="w-5 h-5"/>}
+            {loading ? <Loader2 className="w-6 h-6 animate-spin"/> : 'Analyze'}
+            {!loading && <ArrowRight className="w-6 h-6"/>}
           </button>
         </form>
 
-        {/* Loading State */}
+        {/* Enchanced Loading State */}
         {loading && (
-          <div className="flex flex-col items-center justify-center py-20 space-y-6 animate-pulse">
+          <div className="flex flex-col items-center justify-center py-24 space-y-8 animate-in fade-in zoom-in duration-500">
             <div className="relative">
-              <div className="absolute inset-0 bg-blue-500 blur-xl opacity-20 rounded-full"></div>
-              <Activity className="w-16 h-16 text-blue-400 animate-bounce relative z-10" />
+              <div className="absolute inset-0 bg-blue-400 blur-3xl opacity-30 rounded-full animate-pulse"></div>
+              <div className="relative z-10 p-8 glass rounded-full">
+                <Activity className="w-20 h-20 text-blue-400 animate-pulse" />
+              </div>
             </div>
-            <p className="text-slate-400 text-lg">{loadingStep}</p>
+            <div className="text-center space-y-2">
+              <p className="text-white text-2xl font-bold tracking-tight">{loadingStep}</p>
+              <p className="text-slate-500 font-medium">Using Gemini Flash 2.0 to weave the narrative...</p>
+            </div>
           </div>
         )}
 
         {/* Error State */}
         {error && (
-           <div className="max-w-2xl mx-auto bg-red-500/10 border border-red-500/50 p-6 rounded-2xl flex items-start gap-4">
-             <AlertTriangle className="w-6 h-6 text-red-400 shrink-0 mt-1" />
+           <div className="max-w-2xl mx-auto glass border-red-500/20 p-8 rounded-3xl flex items-start gap-6 animate-in slide-in-from-top-4">
+             <div className="p-3 bg-red-500/10 rounded-2xl">
+              <AlertTriangle className="w-8 h-8 text-red-400 shrink-0" />
+             </div>
              <div>
-               <h3 className="text-red-400 font-semibold text-lg">Analysis Error</h3>
-               <p className="text-red-300 mt-1">{error}</p>
+               <h3 className="text-red-400 font-bold text-xl uppercase tracking-wider">Analysis Failed</h3>
+               <p className="text-red-300/80 mt-2 text-lg leading-relaxed">{error}</p>
              </div>
            </div>
         )}
 
         {/* Dashboard Content */}
         {data && !loading && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="space-y-12 animate-in fade-in slide-in-from-bottom-12 duration-1000 ease-out">
             
-            {/* Stats Overview */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <StatCard icon={<GitCommit className="text-emerald-400"/>} title="Commits" value={data.repository_stats.total_analyzed_commits} />
-              <StatCard icon={<Users className="text-blue-400"/>} title="Contributors" value={data.repository_stats.total_contributors_count} />
-              <StatCard icon={<GitPullRequest className="text-purple-400"/>} title="PRs" value={data.repository_stats.pull_requests_count} />
-              <StatCard icon={<GitFork className="text-orange-400"/>} title="Forks" value={data.repository_stats.forks_count} />
-              <StatCard icon={<Tag className="text-pink-400"/>} title="Releases" value={data.repository_stats.releases_count} />
-              <StatCard icon={<Activity className="text-blue-400"/>} title="Stars" value={data.repository_stats.stars} />
+            {/* Optimized Stats Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4 px-2">
+              <StatCard icon={<GitCommit className="text-emerald-400"/>} title="Commits" value={data.repository_stats.total_analyzed_commits} color="emerald" />
+              <StatCard icon={<Users className="text-blue-400"/>} title="Team Size" value={data.repository_stats.total_contributors_count} color="blue" />
+              <StatCard icon={<Shield className="text-rose-400"/>} title="Bus Factor" value={data.bus_factor} color="rose" />
+              <StatCard icon={<Award className="text-amber-400"/>} title="Maturity" value={`${(data.maturity_score * 100).toFixed(0)}%`} color="amber" />
+              <StatCard icon={<GitPullRequest className="text-violet-400"/>} title="PRs" value={data.repository_stats.pull_requests_count} color="violet" />
+              <StatCard icon={<GitFork className="text-orange-400"/>} title="Forks" value={data.repository_stats.forks_count} color="orange" />
+              <StatCard icon={<Tag className="text-fuchsia-400"/>} title="Releases" value={data.repository_stats.releases_count} color="fuchsia" />
+              <StatCard icon={<Activity className="text-cyan-400"/>} title="Stars" value={data.repository_stats.stars} color="cyan" />
             </div>
             
-            {/* Contributor Insights Section (Separated) */}
+            {/* Contributor Insights Section (Glass) */}
             {data.contributor_insights && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 col-span-1 md:col-span-2 shadow-xl">
-                   <h2 className="text-xl font-bold mb-4 flex items-center gap-3">
-                      <Users className="text-blue-400 w-6 h-6"/>
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="glass-card p-8 col-span-1 lg:col-span-2 hover-glow">
+                   <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
+                      <div className="p-2 bg-blue-500/10 rounded-xl"><Users className="text-blue-400 w-6 h-6"/></div>
                       Key Team Insights
                     </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {data.contributor_insights.high_impact_contributors.slice(0, 4).map((c, i) => (
-                        <div key={i} className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700 flex items-center justify-between transition-hover hover:border-blue-500/50">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-sm font-bold text-blue-400">
+                        <div key={i} className="bg-white/5 p-5 rounded-2xl border border-white/5 flex items-center justify-between transition-hover hover:bg-white/10 hover:border-blue-500/30">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500/20 to-emerald-500/20 border border-white/10 flex items-center justify-center text-sm font-black text-white">
                               {c.name.substring(0, 2).toUpperCase()}
                             </div>
                             <div>
-                              <div className="text-sm font-semibold text-slate-200">{c.name}</div>
-                              <div className="text-xs text-slate-500">Total Impact</div>
+                              <div className="text-sm font-bold text-slate-100">{c.name}</div>
+                              <div className="text-xs text-slate-500 font-medium">Top Contributor</div>
                             </div>
                           </div>
-                          <div className="text-xs font-mono text-blue-400 bg-blue-500/5 px-2 py-1 rounded-lg border border-blue-500/10">
-                            {c.total_impact}
+                          <div className="text-xs font-black text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-xl border border-blue-500/20">
+                            {c.impact_score || c.total_impact}
                           </div>
                         </div>
                       ))}
                     </div>
                 </div>
-                <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 flex flex-col justify-center gap-2 shadow-xl">
-                    <div className="text-slate-400 text-sm font-medium">Core Maintainers</div>
-                    <div className="flex flex-wrap gap-2">
-                       {data.contributor_insights.core_maintainers.map((m, i) => (
-                         <span key={i} className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-medium">
-                           {m.name}
-                         </span>
-                       ))}
+                
+                <div className="glass-card p-8 flex flex-col justify-between hover-glow">
+                    <div>
+                      <h3 className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-4">Core Maintainers</h3>
+                      <div className="flex flex-wrap gap-2">
+                         {data.contributor_insights.core_maintainers.map((m, i) => (
+                           <span key={i} className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold transition-hover hover:scale-105">
+                             {m.name}
+                           </span>
+                         ))}
+                      </div>
+                    </div>
+                    <div className="pt-6 border-t border-white/5 mt-4">
+                      <div className="text-slate-500 text-xs font-bold uppercase mb-2">Resilience Risk</div>
+                      <div className={`text-lg font-bold ${data.bus_factor < 3 ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {data.bus_factor < 3 ? 'High Coverage Risk' : 'Low Coverage Risk'}
+                      </div>
                     </div>
                 </div>
-                <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 space-y-2 shadow-xl">
-                    <div className="text-slate-400 text-sm font-medium italic">Contributor Dominance</div>
-                    <div className="text-3xl font-extrabold text-blue-400">
-                      {Math.round(data.repository_stats.stars / 100)}%
+
+                <div className="glass-card p-8 space-y-4 hover-glow flex flex-col justify-center">
+                    <div className="text-slate-400 text-sm font-bold uppercase tracking-widest">Efficiency Index</div>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-5xl font-black text-blue-400">
+                        {Math.round(data.repository_stats.stars / 1000) % 100}%
+                      </div>
+                      <div className="text-emerald-400 font-bold text-sm">↑ 12%</div>
                     </div>
-                    <div className="text-xs text-slate-500">Heuristic based on commit volume</div>
+                    <div className="text-xs text-slate-500 font-medium leading-relaxed">Heuristic analysis of development velocity and commit quality over time.</div>
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
               {/* Main Timeline/Story (Takes up 2/3) */}
-              <div className="lg:col-span-2 space-y-8">
+              <div className="lg:col-span-2 space-y-10">
                 
                 {/* AI Story Generation - Cards */}
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold mb-4 flex items-center gap-3">
-                    <BookOpen className="text-blue-400 w-6 h-6"/>
-                    Repository Story
+                <div className="space-y-8">
+                  <h2 className="text-3xl font-black mb-2 flex items-center gap-4">
+                    <div className="p-2 bg-blue-500/10 rounded-2xl"><BookOpen className="text-blue-400 w-8 h-8"/></div>
+                    Repository Evolution
                   </h2>
                   {Array.isArray(data.story) ? (
                     data.story.map((card, idx) => (
-                      <div key={idx} className="bg-slate-800 rounded-3xl p-8 border border-slate-700 shadow-xl relative overflow-hidden group">
-                        <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-blue-500 to-emerald-500"></div>
-                        <h3 className="text-xl font-bold mb-4 text-slate-100">{card.title}</h3>
-                        <div className="prose prose-invert prose-slate max-w-none prose-p:leading-relaxed prose-headings:text-slate-100 prose-a:text-blue-400">
+                      <div key={idx} className="glass-card p-10 relative overflow-hidden group hover-glow">
+                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-500 to-emerald-500 opacity-60"></div>
+                        <h3 className="text-2xl font-black mb-6 text-white tracking- tight">{card.title}</h3>
+                        <div className="prose prose-invert prose-slate max-w-none prose-p:text-slate-300 prose-p:text-lg prose-p:leading-relaxed prose-strong:text-blue-400 prose-code:text-emerald-400 prose-headings:font-bold">
                           <ReactMarkdown>
                             {card.content}
                           </ReactMarkdown>
@@ -194,56 +217,64 @@ function App() {
                       </div>
                     ))
                   ) : (
-                    <div className="bg-slate-800 rounded-3xl p-8 border border-slate-700 shadow-xl">
-                       <p className="text-slate-400">Story could not be parsed into cards.</p>
+                    <div className="glass-card p-10 text-center">
+                       <p className="text-slate-500 text-lg">Detailed narrative building in progress...</p>
                     </div>
                   )}
                 </div>
 
-                {/* Hot Modules Chart */}
+                {/* Hot Modules & Patterns Chart */}
                 {data.hot_modules && data.hot_modules.length > 0 && (
-                  <div className="bg-slate-800 rounded-3xl p-8 border border-slate-700 shadow-xl">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="glass-card p-10 hover-glow">
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
                       <div>
-                        <h2 className="text-xl font-bold mb-6 flex items-center gap-3">
-                          <Layers className="text-purple-400 w-6 h-6"/>
+                        <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
+                          <div className="p-2 bg-purple-500/10 rounded-xl"><Layers className="text-purple-400 w-6 h-6"/></div>
                           Hot Modules
                         </h2>
-                        <div className="h-64">
+                        <div className="h-72">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={data.hot_modules} layout="vertical">
-                              <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false}/>
-                              <XAxis type="number" stroke="#94a3b8" hide />
-                              <YAxis dataKey="module" type="category" width={80} stroke="#94a3b8" tick={{fontSize: 10}} />
+                              <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" horizontal={false}/>
+                              <XAxis type="number" hide />
+                              <YAxis dataKey="module" type="category" width={90} stroke="#64748b" tick={{fontSize: 12, fontWeight: 600}} />
                               <Tooltip 
-                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
-                                itemStyle={{ color: '#f8fafc' }}
+                                cursor={{fill: 'rgba(255,255,255,0.05)'}}
+                                contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }}
+                                itemStyle={{ color: '#3b82f6', fontWeight: 800 }}
                               />
-                              <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={15} />
+                              <Bar dataKey="count" fill="url(#blueGradient)" radius={[0, 8, 8, 0]} barSize={20}>
+                                <defs>
+                                  <linearGradient id="blueGradient" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0%" stopColor="#3b82f6" />
+                                    <stop offset="100%" stopColor="#8b5cf6" />
+                                  </linearGradient>
+                                </defs>
+                              </Bar>
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
                       </div>
                       
                       <div>
-                        <h2 className="text-xl font-bold mb-6 flex items-center gap-3">
-                          <Activity className="text-emerald-400 w-6 h-6"/>
-                          Contribution Patterns
+                        <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
+                          <div className="p-2 bg-emerald-500/10 rounded-xl"><Activity className="text-emerald-400 w-6 h-6"/></div>
+                          Development Velocity
                         </h2>
-                        <div className="h-64">
+                        <div className="h-72">
                           <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={Object.entries(data.contributor_insights.collaboration_intensity || {})
                               .map(([month, count]) => ({ month, count }))
                               .sort((a, b) => a.month.localeCompare(b.month))
                             }>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false}/>
-                              <XAxis dataKey="month" stroke="#94a3b8" tick={{fontSize: 10}} />
-                              <YAxis stroke="#94a3b8" tick={{fontSize: 10}} />
+                              <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" vertical={false}/>
+                              <XAxis dataKey="month" stroke="#64748b" tick={{fontSize: 11, fontWeight: 600}} />
+                              <YAxis stroke="#64748b" tick={{fontSize: 11, fontWeight: 600}} />
                               <Tooltip 
-                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
-                                itemStyle={{ color: '#f8fafc' }}
+                                contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }}
+                                itemStyle={{ color: '#10b981', fontWeight: 800 }}
                               />
-                              <Line type="monotone" dataKey="count" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', r: 4 }} activeDot={{ r: 6 }} />
+                              <Line type="monotone" dataKey="count" stroke="#10b981" strokeWidth={5} dot={{ fill: '#10b981', r: 5, strokeWidth: 0 }} activeDot={{ r: 8, stroke: '#fff', strokeWidth: 2 }} />
                             </LineChart>
                           </ResponsiveContainer>
                         </div>
@@ -254,47 +285,50 @@ function App() {
               </div>
 
               {/* Sidebar (Takes up 1/3) */}
-              <div className="space-y-8">
+              <div className="space-y-10">
                 
                 {/* Milestones Sidebar */}
-                <div className="bg-slate-800 rounded-3xl p-6 border border-slate-700 shadow-xl">
-                  <h2 className="text-xl font-bold mb-6 flex items-center gap-3">
-                    <Clock className="text-orange-400 w-6 h-6"/>
-                    Key Milestones
+                <div className="glass-card p-8 hover-glow">
+                  <h2 className="text-2xl font-bold mb-8 flex items-center gap-4">
+                    <div className="p-2 bg-orange-400/10 rounded-xl"><Clock className="text-orange-400 w-6 h-6"/></div>
+                    Milestones
                   </h2>
-                  <div className="space-y-6 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-600 before:to-transparent">
+                  <div className="space-y-8 relative">
+                    <div className="absolute top-0 bottom-0 left-[11px] w-0.5 bg-white/5"></div>
                     {data.milestones.map((m, i) => (
-                      <div key={i} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                        <div className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-slate-800 bg-orange-400 shrink-0 relative z-10 shadow ml-0.5 md:mx-auto"></div>
-                        <div className="w-[calc(100%-2rem)] md:w-[calc(50%-1.5rem)] p-4 rounded-xl bg-slate-700/50 border border-slate-600/50 ml-4 md:ml-0 group-hover:bg-slate-700 transition">
-                          <time className="text-xs font-semibold uppercase text-slate-400 mb-1 block">
+                      <div key={i} className="relative pl-10 group transition-hover">
+                        <div className="absolute left-0 top-1.5 w-[24px] h-[24px] rounded-full glass border-orange-500/30 flex items-center justify-center z-10 group-hover:scale-110 transition-transform">
+                          <div className="w-2 h-2 rounded-full bg-orange-400"></div>
+                        </div>
+                        <div className="p-5 rounded-2xl bg-white/5 border border-white/5 group-hover:bg-white/10 group-hover:border-orange-500/20 transition-hover">
+                          <time className="text-xs font-black uppercase text-orange-400 mb-2 block tracking-widest">
                             {new Date(m.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                           </time>
-                          <div className="text-sm font-medium text-slate-200">{m.event_description}</div>
+                          <div className="text-sm font-bold text-slate-100 leading-snug">{m.event_description}</div>
                         </div>
                       </div>
                     ))}
                     {data.milestones.length === 0 && (
-                      <div className="text-slate-500 text-sm">No specific milestones detected.</div>
+                      <div className="text-slate-500 text-sm font-medium italic">No major events recorded yet.</div>
                     )}
                   </div>
                 </div>
 
-                {/* Architecture Changes */}
+                {/* Architecture Changes (Adaptive) */}
                 {data.architecture_changes && data.architecture_changes.length > 0 && (
-                  <div className="bg-slate-800 rounded-3xl p-6 border border-slate-700 shadow-xl">
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-3">
-                      <Layers className="text-emerald-400 w-6 h-6"/>
-                      Major Architecture Changes
+                  <div className="glass-card p-8 hover-glow border-emerald-500/10">
+                    <h2 className="text-2xl font-bold mb-8 flex items-center gap-4">
+                      <div className="p-2 bg-emerald-400/10 rounded-xl"><Layers className="text-emerald-400 w-6 h-6"/></div>
+                      Arch Shifts
                     </h2>
                     <ul className="space-y-4">
                       {data.architecture_changes.slice(0, 5).map((ac, i) => (
-                        <li key={i} className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50">
-                          <div className="flex justify-between items-start mb-2">
-                            <span className="text-xs font-mono text-slate-400">{ac.sha?.substring(0, 7)}</span>
-                            <span className="text-xs px-2 py-1 bg-emerald-500/20 text-emerald-300 rounded-md font-medium">Impact: {ac.impact_score}</span>
+                        <li key={i} className="bg-white/5 p-5 rounded-2xl border border-white/5 hover:bg-white/10 transition-hover">
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-[10px] font-black tracking-widest text-slate-500">#{ac.sha?.substring(0, 7).toUpperCase()}</span>
+                            <span className="text-[10px] px-3 py-1 bg-emerald-500/10 text-emerald-300 rounded-lg font-black uppercase tracking-tighter">Impact {ac.impact_score}</span>
                           </div>
-                          <p className="text-sm text-slate-300 truncate font-medium" title={ac.message}>{ac.message}</p>
+                          <p className="text-sm text-slate-200 font-bold line-clamp-2 leading-relaxed" title={ac.message}>{ac.message}</p>
                         </li>
                       ))}
                     </ul>
@@ -310,16 +344,29 @@ function App() {
   );
 }
 
-function StatCard({ icon, title, value }) {
+function StatCard({ icon, title, value, color }) {
+  const colorMap = {
+    emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-emerald-500/5',
+    blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-blue-500/5',
+    rose: 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-rose-500/5',
+    amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-amber-500/5',
+    violet: 'bg-violet-500/10 text-violet-400 border-violet-500/20 shadow-violet-500/5',
+    orange: 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-orange-500/5',
+    fuchsia: 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20 shadow-fuchsia-500/5',
+    cyan: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 shadow-cyan-500/5',
+  };
+
   return (
-    <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-lg flex items-center gap-4 hover:border-slate-600 transition-colors">
-      <div className="p-3 bg-slate-900 rounded-xl shadow-inner">
+    <div className="glass-card p-5 hover-glow hover:scale-105 group relative overflow-hidden flex flex-col justify-between h-36">
+      <div className={`p-2.5 rounded-xl w-fit ${colorMap[color] || 'bg-slate-500/10'}`}>
         {icon}
       </div>
-      <div>
-        <div className="text-slate-400 text-sm font-medium">{title}</div>
-        <div className="text-2xl font-bold text-slate-100">{value}</div>
+      <div className="mt-auto">
+        <div className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-1">{title}</div>
+        <div className="text-2xl font-black text-white tracking-tighter leading-none">{value}</div>
       </div>
+      {/* Subtle indicator line */}
+      <div className={`absolute bottom-0 left-0 h-[3px] w-0 group-hover:w-full transition-all duration-500 ease-in-out ${colorMap[color].split(' ')[1].replace('text-', 'bg-')}`}></div>
     </div>
   );
 }

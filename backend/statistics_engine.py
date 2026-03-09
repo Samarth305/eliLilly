@@ -1,4 +1,5 @@
 import math
+import statistics
 from collections import defaultdict
 from typing import List, Dict, Any
 from datetime import datetime
@@ -48,10 +49,19 @@ class StatisticsEngine:
         
     @staticmethod
     def compute_impact_score(commit: Dict[str, Any]) -> int:
-        files_count = len(commit.get("files_changed", []))
+        """
+        Improved Impact Score model:
+        Uses log normalization for files_changed to prevent large-scale renames 
+        or doc updates from dominating the score.
+        """
+        files_changed = len(commit.get("files_changed", []))
         additions = commit.get("additions", 0)
         deletions = commit.get("deletions", 0)
-        return files_count * 5 + additions + deletions
+        
+        # log(x+1) normalization ensures diminishing returns on the number of files
+        log_normalization = math.log(files_changed + 1)
+        impact = (additions + deletions) + (files_changed * log_normalization * 10)
+        return int(impact)
         
     @staticmethod
     def detect_inactivity(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -103,7 +113,7 @@ class StatisticsEngine:
         }
         
     @staticmethod
-    def detect_hot_modules(commits: List[Dict[str, Any]]) -> Dict[str, int]:
+    def detect_hot_modules(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         modules = defaultdict(int)
         for commit in commits:
             files = commit.get("files_changed", [])
@@ -113,96 +123,110 @@ class StatisticsEngine:
                     module = parts[0] + '/'
                     modules[module] += 1
                     
-        # Sort and return top 10
-        sorted_modules = dict(sorted(modules.items(), key=lambda item: item[1], reverse=True)[:10])
-        return sorted_modules
+        # Sort and return top 10 as list for frontend
+        sorted_modules = sorted(modules.items(), key=lambda item: item[1], reverse=True)[:10]
+        return [{"module": m, "count": c} for m, c in sorted_modules]
 
     @staticmethod
-    def detect_architecture_changes(commits: List[Dict[str, Any]], threshold: int = 500) -> List[Dict[str, Any]]:
+    def detect_architecture_changes(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Adaptive Architecture Change Detection:
+        Threshold = Mean(Size) + 3 * StdDev(Size)
+        Size = additions + deletions
+        """
+        if not commits:
+            return []
+
+        sizes = [c.get("additions", 0) + c.get("deletions", 0) for c in commits]
+        if len(sizes) < 2:
+            return []
+
+        mean_size = statistics.mean(sizes)
+        std_size = statistics.stdev(sizes) if len(sizes) > 1 else 0
+        threshold = mean_size + (3 * std_size)
+        
         changes = []
         for c in commits:
-            impact = StatisticsEngine.compute_impact_score(c)
-            if impact > threshold:
+            size = c.get("additions", 0) + c.get("deletions", 0)
+            if size > threshold and size > 50: # Avoid noise on empty repos
                 changes.append({
                     "sha": c.get("sha"),
                     "message": c.get("message"),
                     "date": c.get("date"),
-                    "impact_score": impact
+                    "impact_score": StatisticsEngine.compute_impact_score(c),
+                    "is_adaptive": True
                 })
         return changes
 
     @staticmethod
-    def analyze_contributor_impact(commits: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Calculates core maintainers and high-impact contributors based on commit frequency and total impact score."""
-        contributor_stats = defaultdict(lambda: {"commits": 0, "impact_score": 0})
+    def calculate_bus_factor(commits: List[Dict[str, Any]]) -> int:
+        """
+        Bus Factor Calculation:
+        Minimum number of contributors accounting for at least 50% of total commits.
+        """
+        if not commits:
+            return 0
         
+        authors = defaultdict(int)
         for c in commits:
-            author = c.get("author", "Unknown")
-            contributor_stats[author]["commits"] += 1
-            contributor_stats[author]["impact_score"] += StatisticsEngine.compute_impact_score(c)
-            
-        # Determine core vs occasional by finding those > 10% of total commits
+            authors[c.get("author", "Unknown")] += 1
+        
+        sorted_authors = sorted(authors.values(), reverse=True)
         total_commits = len(commits)
-        core_maintainers = []
-        high_impact = []
+        threshold = total_commits * 0.5
         
-        for author, stats in contributor_stats.items():
-            if stats["commits"] / max(total_commits, 1) > 0.10:
-                core_maintainers.append({"name": author, "commits": stats["commits"]})
-                
-        # Top 5 by impact score
-        sorted_by_impact = sorted(contributor_stats.items(), key=lambda x: x[1]["impact_score"], reverse=True)
-        for author, stats in sorted_by_impact[:5]:
-            high_impact.append({"name": author, "impact_score": stats["impact_score"]})
-            
-        return {
-            "core_maintainers": core_maintainers,
-            "high_impact_contributors": high_impact
-        }
+        count = 0
+        cumulative = 0
+        for commits_count in sorted_authors:
+            cumulative += commits_count
+            count += 1
+            if cumulative >= threshold:
+                break
+        return count
 
     @staticmethod
-    def analyze_code_ownership(commits: List[Dict[str, Any]]) -> Dict[str, str]:
-        """Maps directory/module to the contributor who modifies it the most."""
-        module_authors = defaultdict(lambda: defaultdict(int))
-        
-        for c in commits:
-            author = c.get("author", "Unknown")
-            for f in c.get("files_changed", []):
-                parts = f.split('/')
-                if len(parts) > 1:
-                    module = parts[0] + '/'
-                    module_authors[module][author] += 1
-                    
-        ownership = {}
-        for module, authors_dict in module_authors.items():
-            top_author = max(authors_dict.items(), key=lambda x: x[1])[0]
-            ownership[module] = top_author
-            
-        return ownership
-
-    @staticmethod
-    def calculate_collaboration_intensity(commits: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Measure what phases had the most unique contributors working simultaneously."""
-        # Simple heuristic: Group commits by month, count unique authors
+    def calculate_collaboration_score(commits: List[Dict[str, Any]]) -> Dict[str, float]:
+        """
+        Improved Collaboration Intensity:
+        CollaborationScore = UniqueAuthors_month / Commits_month
+        """
         monthly_authors = defaultdict(set)
+        monthly_commits = defaultdict(int)
         
         for c in commits:
             d = c.get("date")
             author = c.get("author")
             if d and author:
-                dt = parse_date(d)
-                month_str = f"{dt.year}-{dt.strftime('%m')}"
+                # Use first 7 chars for YYYY-MM
+                month_str = d[:7]
                 monthly_authors[month_str].add(author)
+                monthly_commits[month_str] += 1
                 
-        intensity = {month: len(authors) for month, authors in monthly_authors.items()}
-        
-        if not intensity:
-            return {"peak_collaboration_month": None, "intensity_by_month": {}}
+        scores = {}
+        for month in monthly_commits:
+            score = len(monthly_authors[month]) / monthly_commits[month]
+            scores[month] = round(score, 3)
             
-        peak_month = max(intensity.items(), key=lambda x: x[1])
-        
-        return {
-            "peak_collaboration_month": peak_month[0],
-            "peak_unique_contributors": peak_month[1],
-            "intensity_by_month": intensity
-        }
+        return scores
+
+    @staticmethod
+    def calculate_maturity_score(commits: List[Dict[str, Any]]) -> float:
+        """
+        Repository Maturity Score:
+        (RefactorCommits + TestCommits) / TotalCommits
+        Score > 0.30 indicates a mature codebase focus on stability/refinement.
+        """
+        if not commits:
+            return 0.0
+            
+        special_commits = 0
+        for c in commits:
+            c_type = c.get("type", "other")
+            message = c.get("message", "").lower()
+            
+            if c_type in ["refactor", "testing"]:
+                special_commits += 1
+            elif "refactor" in message or "test" in message:
+                special_commits += 1
+                
+        return round(special_commits / len(commits), 3)

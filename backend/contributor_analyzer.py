@@ -1,4 +1,5 @@
 import datetime
+import math
 from typing import List, Dict, Any
 from collections import defaultdict
 
@@ -35,12 +36,16 @@ class ContributorAnalyzer:
             # 1 & 2. Stats per contributor
             contributor_commits[author] += 1
             
-            # Impact Score Calculation
+            # Impact Score Calculation (Normalized)
             files_changed = commit.get("files_changed", [])
             additions = commit.get("additions", 0)
             deletions = commit.get("deletions", 0)
-            impact = (len(files_changed) * 5) + additions + deletions
-            contributor_impact[author] += impact
+            
+            # Using the same log-normalized formula as StatisticsEngine
+            num_files = len(files_changed)
+            log_normalization = math.log(num_files + 1)
+            impact = (additions + deletions) + (num_files * log_normalization * 10)
+            contributor_impact[author] += int(impact)
 
             # 3. Patterns over time
             if month != "Unknown":

@@ -10,8 +10,8 @@ class GeminiService:
             print("Warning: GEMINI_API_KEY not found in environment")
         
         genai.configure(api_key=gemini_api_key)
-        # Using gemini-2.5-flash since we need structured generation
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        # Using gemini-2.0-flash since we need structured generation
+        self.model = genai.GenerativeModel('gemini-2.0-flash')
         
     def generate_story(self, structured_signals: Dict[str, Any]) -> str:
         prompt = f"""
@@ -34,21 +34,21 @@ class GeminiService:
         Do NOT output raw markdown text. You must output a valid JSON array of "Story Cards". 
         Each object in the array should represent a logical section or phase of the story.
         
-        Analyze and explain the team dynamics using the 'contributor_insights' signal:
-        - Identify Core Maintainers (those with significant commit ratios) and their impact.
-        - Highlight High Impact Contributors and how they shaped the codebase.
-        - Discuss Code Ownership (which authors were leading specific modules).
-        - Mention Collaboration Intensity and patterns over time.
+        Analyze and explain the team dynamics using the signals:
+        - **Bus Factor**: Explain the team's resilience. A low Bus Factor (e.g., 1) indicates high risk if the lead developer departs.
+        - **Maturity Score**: Explain the project's focus. Score > 0.30 indicates a shift from feature building to refactoring and test-driven stability.
+        - **Collaboration Intensity**: Use the monthly scores to explain how distributed the effort was.
+        - **Contributor Insights**: Identify Core Maintainers, High Impact Contributors, and Code Ownership.
         
         Each card must follow this JSON structure: {{"title": "Card Title", "content": "Markdown content"}}.
-        Include at least one card specifically explaining the team dynamics and contributor impact.
-        Do not just list the JSON keys; weave them into a narrative (e.g., "Alice emerged as the primary guardian of the auth module...").
+        Include at least one card specifically explaining the team dynamics and risk (Bus Factor).
+        Include at least one card summarizing the project maturity and evolution.
         
         Example Output Format:
         [
           {{
             "title": "The Team Dynamics",
-            "content": "The project was primarily shaped by..."
+            "content": "The project was primarily shaped by Alice, but the recent increase in Bus Factor to 3 shows a more resilient team structure..."
           }}
         ]
         """

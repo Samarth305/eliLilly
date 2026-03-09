@@ -39,6 +39,8 @@ class AnalysisResponse(BaseModel):
     hot_modules: list
     architecture_changes: list
     contributor_insights: dict
+    bus_factor: int
+    maturity_score: float
     story: list
 
 @app.post("/analyze-repository", response_model=AnalysisResponse)
@@ -84,13 +86,18 @@ async def analyze_repository(request: AnalyzeRequest):
         inactivity = StatisticsEngine.detect_inactivity(detailed_commits)
         dominance = StatisticsEngine.get_contributor_dominance(detailed_commits)
         hot_modules = StatisticsEngine.detect_hot_modules(detailed_commits)
-        arch_changes = StatisticsEngine.detect_architecture_changes(detailed_commits, threshold=200)
+        arch_changes = StatisticsEngine.detect_architecture_changes(detailed_commits)
         
         # 4. Contributor Analysis
         contributor_insights = ContributorAnalyzer.analyze(detailed_commits)
         
         # 5. Milestone Detection
         milestones = MilestoneDetector.generate_milestones(detailed_commits, releases)
+        
+        # 6. Advanced Analytics
+        bus_factor = StatisticsEngine.calculate_bus_factor(detailed_commits)
+        maturity_score = StatisticsEngine.calculate_maturity_score(detailed_commits)
+        collaboration_intensity = StatisticsEngine.calculate_collaboration_score(detailed_commits)
         
         # Structure data for Gemini
         gemini_signals = {
@@ -104,7 +111,10 @@ async def analyze_repository(request: AnalyzeRequest):
             "contributor_dominance": dominance,
             "contributor_insights": contributor_insights,
             "milestones": milestones,
-            "hot_modules": hot_modules
+            "hot_modules": hot_modules,
+            "bus_factor": bus_factor,
+            "maturity_score": maturity_score,
+            "collaboration_intensity": collaboration_intensity
         }
         
         # 5. Connect to Gemini for story analysis
@@ -129,9 +139,11 @@ async def analyze_repository(request: AnalyzeRequest):
             "milestones": milestones,
             "contributors": [c.get("login") for c in contributors[:10]],
             "activity_bursts": bursts,
-            "hot_modules": [{"module": k, "count": v} for k, v in hot_modules.items()],
+            "hot_modules": hot_modules,
             "architecture_changes": arch_changes,
             "contributor_insights": contributor_insights,
+            "bus_factor": bus_factor,
+            "maturity_score": maturity_score,
             "story": story
         }
         
