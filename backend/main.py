@@ -56,23 +56,28 @@ async def analyze_repository(request: AnalyzeRequest):
     try:
         # 1. Fetch data
         repo_info = await github_service.get_repository_info(owner, repo)
-        raw_commits = await github_service.get_commits(owner, repo, per_page=100, max_pages=5)
+        # Ensure we try to read all commits
+        raw_commits = await github_service.get_commits(owner, repo, per_page=100)
         branches = await github_service.get_branches(owner, repo)
         contributors = await github_service.get_contributors(owner, repo)
         releases = await github_service.get_releases(owner, repo)
         pull_requests = await github_service.get_pull_requests(owner, repo)
         
-        # 2. Extract commit details concurrently (limit to 100 to avoid rate limit/slowdown)
+        # 2. Extract commit details concurrently
         detailed_commits = []
         
+        # Use a semaphore to prevent too many concurrent connections and rate limit errors
+        sem = asyncio.Semaphore(50)
+        
         async def fetch_commit(sha: str):
-            detail = await github_service.get_commit_details(owner, repo, sha)
-            if detail:
-                return CommitAnalyzer.extract_summary(detail)
-            return None
+            async with sem:
+                detail = await github_service.get_commit_details(owner, repo, sha)
+                if detail:
+                    return CommitAnalyzer.extract_summary(detail)
+                return None
 
-        # Gather promises - limited to 200 for better balance between speed and depth
-        tasks = [asyncio.create_task(fetch_commit(rc.get("sha"))) for rc in raw_commits[:200] if rc.get("sha")]
+        # Gather details for ALL commits (no limits)
+        tasks = [asyncio.create_task(fetch_commit(rc.get("sha"))) for rc in raw_commits if rc.get("sha")]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         for res in results:
@@ -80,24 +85,41 @@ async def analyze_repository(request: AnalyzeRequest):
                 detailed_commits.append(res)
 
                     
-        # 3. Statistical Analysis
-        frequencies = StatisticsEngine.compute_commit_frequency(detailed_commits)
+        # 3. Filter commits for noise reduction
+        filtered_commits = []
+        for c in detailed_commits:
+            message = c.get("message", "").lower()
+            author = c.get("author", "").lower()
+            files_changed = len(c.get("files", []))
+            
+            # Exclude merging, bot accounts, and 0-file changes
+            if message.startswith("merge"):
+                continue
+            if "bot" in author:
+                continue
+            if files_changed == 0:
+                continue
+            
+            filtered_commits.append(c)
+        # 4. Statistical Analysis
+        frequencies = StatisticsEngine.compute_commit_frequency(filtered_commits)
         bursts = StatisticsEngine.detect_bursts(frequencies.get("commits_per_week", {}))
-        inactivity = StatisticsEngine.detect_inactivity(detailed_commits)
-        dominance = StatisticsEngine.get_contributor_dominance(detailed_commits)
-        hot_modules = StatisticsEngine.detect_hot_modules(detailed_commits)
-        arch_changes = StatisticsEngine.detect_architecture_changes(detailed_commits)
+        inactivity = StatisticsEngine.detect_inactivity(filtered_commits)
+        dominance = StatisticsEngine.get_contributor_dominance(filtered_commits)
+        hot_modules = StatisticsEngine.detect_hot_modules(filtered_commits)
+        arch_changes = StatisticsEngine.detect_architecture_changes(filtered_commits)
         
-        # 4. Contributor Analysis
-        contributor_insights = ContributorAnalyzer.analyze(detailed_commits)
+        # 5. Contributor Analysis
+        contributor_insights = ContributorAnalyzer.analyze(filtered_commits)
         
-        # 5. Milestone Detection
-        milestones = MilestoneDetector.generate_milestones(detailed_commits, releases)
+        # 6. Milestone Detection
+        milestones = MilestoneDetector.generate_milestones(filtered_commits, releases)
         
-        # 6. Advanced Analytics
-        bus_factor = StatisticsEngine.calculate_bus_factor(detailed_commits)
-        maturity_score = StatisticsEngine.calculate_maturity_score(detailed_commits)
-        collaboration_intensity = StatisticsEngine.calculate_collaboration_score(detailed_commits)
+        # 7. Advanced Analytics
+        bus_factor = StatisticsEngine.calculate_bus_factor(filtered_commits)
+        maturity_score = StatisticsEngine.calculate_maturity_score(filtered_commits)
+        collaboration_intensity = StatisticsEngine.calculate_collaboration_score(filtered_commits)
+        development_phases = StatisticsEngine.detect_development_phases(filtered_commits)
         
         # Structure data for Gemini
         gemini_signals = {
@@ -114,7 +136,8 @@ async def analyze_repository(request: AnalyzeRequest):
             "hot_modules": hot_modules,
             "bus_factor": bus_factor,
             "maturity_score": maturity_score,
-            "collaboration_intensity": collaboration_intensity
+            "collaboration_intensity": collaboration_intensity,
+            "development_phases": development_phases
         }
         
         # 5. Connect to Gemini for story analysis
@@ -127,7 +150,7 @@ async def analyze_repository(request: AnalyzeRequest):
         
         response = {
             "repository_stats": {
-                "total_analyzed_commits": len(detailed_commits),
+                "total_analyzed_commits": len(raw_commits),
                 "total_contributors_count": len(contributors),
                 "branches_count": len(branches),
                 "releases_count": len(releases),
@@ -135,9 +158,9 @@ async def analyze_repository(request: AnalyzeRequest):
                 "forks_count": repo_info.get("forks_count", 0),
                 "stars": repo_info.get("stargazers_count", 0),
             },
-            "development_phases": [],  # Could be extracted by regex from Gemini story if needed
+            "development_phases": development_phases,
             "milestones": milestones,
-            "contributors": [c.get("login") for c in contributors[:10]],
+            "contributors": [c.get("login") for c in contributors],
             "activity_bursts": bursts,
             "hot_modules": hot_modules,
             "architecture_changes": arch_changes,

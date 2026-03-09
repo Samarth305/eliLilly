@@ -15,53 +15,63 @@ class GeminiService:
         
     def generate_story(self, structured_signals: Dict[str, Any]) -> str:
         prompt = f"""
-        You are an expert software engineer and technical project historian.
-        I will provide you with structured statistical data and key metadata about a GitHub repository's evolution.
+        You are analyzing the evolution of a software repository.
         
-        Your task is to generate a comprehensive, structured narrative describing how this project evolved over time, 
-        its major development phases, architectural changes, bursts of activity, and periods of inactivity.
+        You will receive structured development phases extracted from Git history.
         
-        Analyze the following structured signals:
-        {json.dumps(structured_signals, indent=2, default=str)}
+        Each phase contains:
+        - start
+        - end
+        - commit_count
+        - dominant_commit_type
+        - top_modules
+        - contributors
+        - avg_commit_size
         
-        Focus on interpreting:
-        - The development phases (e.g., initial development, feature expansion, stabilization).
-        - Highlights of architectural shifts based on the 'architecture_changes' listed.
-        - Meaningful bursts of activity or lack thereof.
-        - Team dynamics and contributor impact using the 'contributor_insights' data.
+        Your task is to interpret each phase and explain what likely happened during that period.
         
-        CRITICAL INSTRUCTION:
-        Do NOT output raw markdown text. You must output a valid JSON array of "Story Cards". 
-        Each object in the array should represent a logical section or phase of the story.
+        Focus on:
+        - development activity
+        - architectural changes
+        - feature expansion
+        - bug fixing cycles
+        - collaboration patterns
+        - module evolution
         
-        Analyze and explain the team dynamics using the signals:
-        - **Bus Factor**: Explain the team's resilience. A low Bus Factor (e.g., 1) indicates high risk if the lead developer departs.
-        - **Maturity Score**: Explain the project's focus. Score > 0.30 indicates a shift from feature building to refactoring and test-driven stability.
-        - **Collaboration Intensity**: Use the monthly scores to explain how distributed the effort was.
-        - **Contributor Insights**: Identify Core Maintainers, High Impact Contributors, and Code Ownership.
+        Write a concise narrative for each phase.
         
-        Each card must follow this JSON structure: {{"title": "Card Title", "content": "Markdown content"}}.
-        Include at least one card specifically explaining the team dynamics and risk (Bus Factor).
-        Include at least one card summarizing the project maturity and evolution.
+        Return JSON in this exact format:
+        {{
+          "story_cards": [
+            {{
+              "title": "Phase title",
+              "period": "start → end",
+              "description": "clear explanation of what happened in the repository during this phase"
+            }}
+          ]
+        }}
         
-        Example Output Format:
-        [
-          {{
-            "title": "The Team Dynamics",
-            "content": "The project was primarily shaped by Alice, but the recent increase in Bus Factor to 3 shows a more resilient team structure..."
-          }}
-        ]
+        Data to analyze:
+        {json.dumps(structured_signals.get('development_phases', []), indent=2, default=str)}
         """
         try:
             response = self.model.generate_content(prompt)
             text = response.text.strip()
             
-            # Robust extraction of the JSON array using regex
-            import re
-            match = re.search(r'\[.*\]', text, re.DOTALL)
-            if match:
-                json_str = match.group(0)
-                return json.loads(json_str)
+            # Remove any markdown code block wrap (e.g. ```json ... ```)
+            if text.startswith("```json"):
+                text = text.replace("```json", "", 1)
+            if text.endswith("```"):
+                text = text[:-3]
+                
+            text = text.strip()
+            
+            # Robust extraction of the story_cards array
+            parsed = json.loads(text)
+            if "story_cards" in parsed:
+                return parsed["story_cards"]
+            
+            return parsed
             
             # Fallback if regex fails but text might be raw JSON
             return json.loads(text)

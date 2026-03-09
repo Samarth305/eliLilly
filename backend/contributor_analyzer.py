@@ -95,7 +95,7 @@ class ContributorAnalyzer:
 
         return {
             "core_maintainers": core_maintainers,
-            "high_impact_contributors": high_impact[:10], # Top 10
+            "high_impact_contributors": high_impact, # All high impact contributors
             "contribution_patterns": {k: dict(v) for k, v in contribution_patterns.items()},
             "code_ownership": {k: dict(v) for k, v in code_ownership.items()},
             "collaboration_intensity": collaboration_intensity

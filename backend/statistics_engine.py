@@ -123,16 +123,15 @@ class StatisticsEngine:
                     module = parts[0] + '/'
                     modules[module] += 1
                     
-        # Sort and return top 10 as list for frontend
-        sorted_modules = sorted(modules.items(), key=lambda item: item[1], reverse=True)[:10]
+        # Sort and return all hot modules
+        sorted_modules = sorted(modules.items(), key=lambda item: item[1], reverse=True)
         return [{"module": m, "count": c} for m, c in sorted_modules]
 
     @staticmethod
     def detect_architecture_changes(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Adaptive Architecture Change Detection:
-        Threshold = Mean(Size) + 3 * StdDev(Size)
-        Size = additions + deletions
+        Architecture Shift Detection:
+        Multi-signal thresholding based on size, files, directories, and message keywords.
         """
         if not commits:
             return []
@@ -143,19 +142,42 @@ class StatisticsEngine:
 
         mean_size = statistics.mean(sizes)
         std_size = statistics.stdev(sizes) if len(sizes) > 1 else 0
-        threshold = mean_size + (3 * std_size)
+        size_threshold = mean_size + (3 * std_size)
+
+        refactor_keywords = ["refactor", "rewrite", "restructure", "migrate"]
         
         changes = []
         for c in commits:
             size = c.get("additions", 0) + c.get("deletions", 0)
-            if size > threshold and size > 50: # Avoid noise on empty repos
+            files = c.get("files", [])
+            
+            # Condition 1: Size
+            cond_size = size > size_threshold
+            
+            # Condition 2: Files changed
+            cond_files = len(files) >= 10
+            
+            # Condition 3: Unique directories
+            dirs = set()
+            for f in files:
+                filename = f.get("filename", "")
+                if "/" in filename:
+                    dirs.add(filename[:filename.rfind("/")])
+            cond_dirs = len(dirs) >= 3
+            
+            # Condition 4: Refactor keywords
+            message = c.get("message", "").lower()
+            cond_keywords = any(kw in message for kw in refactor_keywords)
+            
+            # Strict multi-signal rule
+            if cond_size and cond_files and cond_dirs and cond_keywords:
                 changes.append({
-                    "sha": c.get("sha"),
-                    "message": c.get("message"),
+                    "type": "architecture_shift",
+                    "commit_sha": c.get("sha"),
                     "date": c.get("date"),
-                    "impact_score": StatisticsEngine.compute_impact_score(c),
-                    "is_adaptive": True
+                    "impact": size
                 })
+
         return changes
 
     @staticmethod
@@ -204,8 +226,10 @@ class StatisticsEngine:
                 
         scores = {}
         for month in monthly_commits:
-            score = len(monthly_authors[month]) / monthly_commits[month]
-            scores[month] = round(score, 3)
+            total_commits = monthly_commits[month]
+            if total_commits >= 10:
+                score = len(monthly_authors[month]) / math.sqrt(total_commits)
+                scores[month] = round(score, 3)
             
         return scores
 
@@ -230,3 +254,106 @@ class StatisticsEngine:
                 special_commits += 1
                 
         return round(special_commits / len(commits), 3)
+
+    @staticmethod
+    def detect_development_phases(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Lightweight Clustering for Development Phases.
+        Extracts dominant commit types, top modules, unique contributors, and avg commit size.
+        """
+        if not commits:
+            return []
+            
+        # 1. Group commits by week
+        weekly_commits_map = defaultdict(list)
+        for commit in commits:
+            date_str = commit.get("date")
+            if not date_str:
+                continue
+            dt = parse_date(date_str)
+            week_str = f"{dt.year}-W{dt.strftime('%V')}"
+            weekly_commits_map[week_str].append(commit)
+            
+        if not weekly_commits_map:
+            return []
+            
+        # 2. Compute mean weekly commit activity
+        counts = [len(c_list) for c_list in weekly_commits_map.values()]
+        avg_commits = statistics.mean(counts)
+        
+        # 3. Detect active weeks
+        sorted_weeks = sorted(weekly_commits_map.keys())
+        active_weeks = []
+        for week in sorted_weeks:
+            if len(weekly_commits_map[week]) >= avg_commits:
+                active_weeks.append(week)
+                
+        # 4. Merge consecutive active weeks
+        if not active_weeks:
+            return []
+            
+        def compute_phase_stats(phase_start, phase_end, week_list):
+            phase_commits = []
+            for w in week_list:
+                phase_commits.extend(weekly_commits_map[w])
+                
+            types = defaultdict(int)
+            modules = defaultdict(int)
+            authors = set()
+            total_size = 0
+            
+            for c in phase_commits:
+                c_type = c.get("type", "other")
+                types[c_type] += 1
+                authors.add(c.get("author", "Unknown"))
+                total_size += (c.get("additions", 0) + c.get("deletions", 0))
+                
+                # Top modules calculation
+                for f in c.get("files_changed", []):
+                    parts = f.split('/')
+                    if len(parts) > 1:
+                        modules[parts[0]] += 1
+                        
+            dominant_type = max(types.items(), key=lambda x: x[1])[0] if types else "other"
+            top_modules = [m[0] for m in sorted(modules.items(), key=lambda x: x[1], reverse=True)[:3]]
+            avg_size = total_size // len(phase_commits) if phase_commits else 0
+            
+            return {
+                "start": phase_start,
+                "end": phase_end,
+                "commit_count": len(phase_commits),
+                "dominant_commit_type": dominant_type,
+                "top_modules": top_modules,
+                "contributors": len(authors),
+                "avg_commit_size": avg_size,
+                "phase_type": "active_development_phase"
+            }
+            
+        phases = []
+        current_start = active_weeks[0]
+        current_end = active_weeks[0]
+        current_weeks = [active_weeks[0]]
+        
+        for i in range(1, len(active_weeks)):
+            prev_week = active_weeks[i-1]
+            curr_week = active_weeks[i]
+            
+            # Simple check for consecutive weeks (e.g., 2024-W05 to 2024-W06)
+            y1, w1 = map(int, prev_week.split('-W'))
+            y2, w2 = map(int, curr_week.split('-W'))
+            
+            is_consecutive = (y1 == y2 and w2 - w1 == 1) or (y2 - y1 == 1 and w2 == 1 and w1 in [52, 53])
+            
+            if is_consecutive:
+                current_end = curr_week
+                current_weeks.append(curr_week)
+            else:
+                phases.append(compute_phase_stats(current_start, current_end, current_weeks))
+                current_start = curr_week
+                current_end = curr_week
+                current_weeks = [curr_week]
+                
+        # Append the last phase
+        phases.append(compute_phase_stats(current_start, current_end, current_weeks))
+        
+        return phases

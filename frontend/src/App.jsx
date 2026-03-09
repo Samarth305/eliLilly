@@ -208,10 +208,16 @@ function App() {
                     data.story.map((card, idx) => (
                       <div key={idx} className="glass-card p-10 relative overflow-hidden group hover-glow">
                         <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-500 to-emerald-500 opacity-60"></div>
-                        <h3 className="text-2xl font-black mb-6 text-white tracking- tight">{card.title}</h3>
+                        <h3 className="text-2xl font-black mb-2 text-white tracking-tight">{card.title}</h3>
+                        {card.period && (
+                          <div className="text-xs font-black text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg w-fit mt-2 mb-6 uppercase tracking-widest border border-blue-500/20">
+                            {card.period}
+                          </div>
+                        )}
+                        {!card.period && <div className="mb-6"></div>}
                         <div className="prose prose-invert prose-slate max-w-none prose-p:text-slate-300 prose-p:text-lg prose-p:leading-relaxed prose-strong:text-blue-400 prose-code:text-emerald-400 prose-headings:font-bold">
                           <ReactMarkdown>
-                            {card.content}
+                            {card.description || card.content}
                           </ReactMarkdown>
                         </div>
                       </div>
@@ -234,7 +240,7 @@ function App() {
                         </h2>
                         <div className="h-72">
                           <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data.hot_modules} layout="vertical">
+                            <BarChart data={data.hot_modules.slice(0, 10)} layout="vertical">
                               <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" horizontal={false}/>
                               <XAxis type="number" hide />
                               <YAxis dataKey="module" type="category" width={90} stroke="#64748b" tick={{fontSize: 12, fontWeight: 600}} />
@@ -332,6 +338,33 @@ function App() {
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+
+                {/* Development Phases Sidebar */}
+                {data.development_phases && data.development_phases.length > 0 && (
+                  <div className="glass-card p-8 hover-glow border-indigo-500/10">
+                    <h2 className="text-2xl font-bold mb-8 flex items-center gap-4">
+                      <div className="p-2 bg-indigo-500/10 rounded-xl"><GitBranch className="text-indigo-400 w-6 h-6"/></div>
+                      Dev Phases
+                    </h2>
+                    <div className="space-y-4">
+                      {data.development_phases.map((phase, i) => (
+                        <div key={i} className="p-5 bg-white/5 border border-white/5 rounded-2xl transition-hover hover:border-indigo-500/30 hover:bg-white/10">
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-xs font-black text-indigo-400 bg-indigo-500/10 px-3 py-1 flex-1 text-center rounded-xl tracking-widest uppercase">
+                              {phase.start} &rarr; {phase.end}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center mt-2">
+                            <div className="text-sm text-slate-200 capitalize font-bold">
+                              {phase.dominant_commit_type.replace(/_/g, ' ')} Focus
+                            </div>
+                            <span className="text-xs font-black text-slate-500 bg-black/20 px-3 py-1 rounded-lg">{phase.commit_count} commits</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
                 
