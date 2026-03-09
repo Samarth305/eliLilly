@@ -125,7 +125,7 @@ function App() {
             {/* Optimized Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4 px-2">
               <StatCard icon={<GitCommit className="text-emerald-400"/>} title="Commits" value={data.repository_stats.total_analyzed_commits} color="emerald" />
-              <StatCard icon={<Users className="text-blue-400"/>} title="Team Size" value={data.repository_stats.total_contributors_count} color="blue" />
+              <StatCard icon={<Users className="text-blue-400"/>} title="Contributors" value={data.repository_stats.total_contributors_count} color="blue" />
               <StatCard icon={<Shield className="text-rose-400"/>} title="Bus Factor" value={data.bus_factor} color="rose" />
               <StatCard icon={<Award className="text-amber-400"/>} title="Maturity" value={`${(data.maturity_score * 100).toFixed(0)}%`} color="amber" />
               <StatCard icon={<GitPullRequest className="text-violet-400"/>} title="PRs" value={data.repository_stats.pull_requests_count} color="violet" />
