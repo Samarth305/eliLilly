@@ -62,6 +62,14 @@ class GitHubService:
         if response.status_code == 200:
             return response.json()
         return []
+
+    async def get_pull_requests(self, owner: str, repo: str) -> List[Dict[str, Any]]:
+        """Fetch pull requests (open and closed)."""
+        url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/pulls"
+        response = await self.client.get(url, params={"state": "all", "per_page": 100})
+        if response.status_code == 200:
+            return response.json()
+        return []
     
     async def close(self):
         await self.client.aclose()

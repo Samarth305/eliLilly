@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { 
   GitCommit, Users, GitBranch, Tag, ArrowRight, Loader2, 
-  Activity, BookOpen, Clock, AlertTriangle, Layers
+  Activity, BookOpen, Clock, AlertTriangle, Layers, GitPullRequest, GitFork
 } from 'lucide-react';
 import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend
 } from 'recharts';
 import ReactMarkdown from 'react-markdown';
 
@@ -115,11 +115,13 @@ function App() {
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
             
             {/* Stats Overview */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard icon={<GitCommit className="text-emerald-400"/>} title="Analyzed Commits" value={data.repository_stats.total_analyzed_commits} />
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <StatCard icon={<GitCommit className="text-emerald-400"/>} title="Commits" value={data.repository_stats.total_analyzed_commits} />
               <StatCard icon={<Users className="text-blue-400"/>} title="Contributors" value={data.repository_stats.total_contributors_count} />
-              <StatCard icon={<GitBranch className="text-purple-400"/>} title="Branches" value={data.repository_stats.branches_count} />
-              <StatCard icon={<Tag className="text-orange-400"/>} title="Releases" value={data.repository_stats.releases_count} />
+              <StatCard icon={<GitPullRequest className="text-purple-400"/>} title="PRs" value={data.repository_stats.pull_requests_count} />
+              <StatCard icon={<GitFork className="text-orange-400"/>} title="Forks" value={data.repository_stats.forks_count} />
+              <StatCard icon={<Tag className="text-pink-400"/>} title="Releases" value={data.repository_stats.releases_count} />
+              <StatCard icon={<Activity className="text-blue-400"/>} title="Stars" value={data.repository_stats.stars} />
             </div>
             
             {/* Contributor Insights Section (Separated) */}
@@ -132,18 +134,18 @@ function App() {
                     </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {data.contributor_insights.high_impact_contributors.slice(0, 4).map((c, i) => (
-                        <div key={i} className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700 flex items-center justify-between">
+                        <div key={i} className="bg-slate-900/50 p-4 rounded-2xl border border-slate-700 flex items-center justify-between transition-hover hover:border-blue-500/50">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-sm font-bold text-blue-400">
                               {c.name.substring(0, 2).toUpperCase()}
                             </div>
                             <div>
                               <div className="text-sm font-semibold text-slate-200">{c.name}</div>
-                              <div className="text-xs text-slate-500">High Impact</div>
+                              <div className="text-xs text-slate-500">Total Impact</div>
                             </div>
                           </div>
-                          <div className="text-xs font-mono text-blue-400 bg-blue-500/5 px-2 py-1 rounded-lg">
-                            {c.impact_score}
+                          <div className="text-xs font-mono text-blue-400 bg-blue-500/5 px-2 py-1 rounded-lg border border-blue-500/10">
+                            {c.total_impact}
                           </div>
                         </div>
                       ))}
@@ -201,23 +203,51 @@ function App() {
                 {/* Hot Modules Chart */}
                 {data.hot_modules && data.hot_modules.length > 0 && (
                   <div className="bg-slate-800 rounded-3xl p-8 border border-slate-700 shadow-xl">
-                    <h2 className="text-xl font-bold mb-6 flex items-center gap-3">
-                      <Layers className="text-purple-400 w-6 h-6"/>
-                      Hot Modules
-                    </h2>
-                    <div className="h-72">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data.hot_modules} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false}/>
-                          <XAxis type="number" stroke="#94a3b8" />
-                          <YAxis dataKey="module" type="category" width={100} stroke="#94a3b8" tick={{fontSize: 12}} />
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
-                            itemStyle={{ color: '#f8fafc' }}
-                          />
-                          <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
-                        </BarChart>
-                      </ResponsiveContainer>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div>
+                        <h2 className="text-xl font-bold mb-6 flex items-center gap-3">
+                          <Layers className="text-purple-400 w-6 h-6"/>
+                          Hot Modules
+                        </h2>
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={data.hot_modules} layout="vertical">
+                              <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false}/>
+                              <XAxis type="number" stroke="#94a3b8" hide />
+                              <YAxis dataKey="module" type="category" width={80} stroke="#94a3b8" tick={{fontSize: 10}} />
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
+                                itemStyle={{ color: '#f8fafc' }}
+                              />
+                              <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={15} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h2 className="text-xl font-bold mb-6 flex items-center gap-3">
+                          <Activity className="text-emerald-400 w-6 h-6"/>
+                          Contribution Patterns
+                        </h2>
+                        <div className="h-64">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={Object.entries(data.contributor_insights.collaboration_intensity || {})
+                              .map(([month, count]) => ({ month, count }))
+                              .sort((a, b) => a.month.localeCompare(b.month))
+                            }>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false}/>
+                              <XAxis dataKey="month" stroke="#94a3b8" tick={{fontSize: 10}} />
+                              <YAxis stroke="#94a3b8" tick={{fontSize: 10}} />
+                              <Tooltip 
+                                contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
+                                itemStyle={{ color: '#f8fafc' }}
+                              />
+                              <Line type="monotone" dataKey="count" stroke="#10b981" strokeWidth={3} dot={{ fill: '#10b981', r: 4 }} activeDot={{ r: 6 }} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}

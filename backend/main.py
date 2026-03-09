@@ -13,6 +13,7 @@ from commit_analyzer import CommitAnalyzer
 from statistics_engine import StatisticsEngine
 from milestone_detector import MilestoneDetector
 from gemini_service import GeminiService
+from contributor_analyzer import ContributorAnalyzer
 
 load_dotenv()
 
@@ -37,6 +38,7 @@ class AnalysisResponse(BaseModel):
     activity_bursts: list
     hot_modules: list
     architecture_changes: list
+    contributor_insights: dict
     story: list
 
 @app.post("/analyze-repository", response_model=AnalysisResponse)
@@ -52,10 +54,11 @@ async def analyze_repository(request: AnalyzeRequest):
     try:
         # 1. Fetch data
         repo_info = await github_service.get_repository_info(owner, repo)
-        raw_commits = await github_service.get_commits(owner, repo, per_page=100, max_pages=3)
+        raw_commits = await github_service.get_commits(owner, repo, per_page=100, max_pages=5)
         branches = await github_service.get_branches(owner, repo)
         contributors = await github_service.get_contributors(owner, repo)
         releases = await github_service.get_releases(owner, repo)
+        pull_requests = await github_service.get_pull_requests(owner, repo)
         
         # 2. Extract commit details concurrently (limit to 100 to avoid rate limit/slowdown)
         detailed_commits = []
@@ -66,8 +69,8 @@ async def analyze_repository(request: AnalyzeRequest):
                 return CommitAnalyzer.extract_summary(detail)
             return None
 
-        # Gather promises
-        tasks = [asyncio.create_task(fetch_commit(rc.get("sha"))) for rc in raw_commits[:100] if rc.get("sha")]
+        # Gather promises - limited to 200 for better balance between speed and depth
+        tasks = [asyncio.create_task(fetch_commit(rc.get("sha"))) for rc in raw_commits[:200] if rc.get("sha")]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         for res in results:
@@ -83,7 +86,10 @@ async def analyze_repository(request: AnalyzeRequest):
         hot_modules = StatisticsEngine.detect_hot_modules(detailed_commits)
         arch_changes = StatisticsEngine.detect_architecture_changes(detailed_commits, threshold=200)
         
-        # 4. Milestone Detection
+        # 4. Contributor Analysis
+        contributor_insights = ContributorAnalyzer.analyze(detailed_commits)
+        
+        # 5. Milestone Detection
         milestones = MilestoneDetector.generate_milestones(detailed_commits, releases)
         
         # Structure data for Gemini
@@ -96,9 +102,7 @@ async def analyze_repository(request: AnalyzeRequest):
             "inactivity_periods": inactivity,
             "architecture_changes": arch_changes,
             "contributor_dominance": dominance,
-            "contributor_impact": StatisticsEngine.analyze_contributor_impact(detailed_commits),
-            "code_ownership": StatisticsEngine.analyze_code_ownership(detailed_commits),
-            "collaboration_intensity": StatisticsEngine.calculate_collaboration_intensity(detailed_commits),
+            "contributor_insights": contributor_insights,
             "milestones": milestones,
             "hot_modules": hot_modules
         }
@@ -117,6 +121,8 @@ async def analyze_repository(request: AnalyzeRequest):
                 "total_contributors_count": len(contributors),
                 "branches_count": len(branches),
                 "releases_count": len(releases),
+                "pull_requests_count": len(pull_requests),
+                "forks_count": repo_info.get("forks_count", 0),
                 "stars": repo_info.get("stargazers_count", 0),
             },
             "development_phases": [],  # Could be extracted by regex from Gemini story if needed
@@ -125,7 +131,7 @@ async def analyze_repository(request: AnalyzeRequest):
             "activity_bursts": bursts,
             "hot_modules": [{"module": k, "count": v} for k, v in hot_modules.items()],
             "architecture_changes": arch_changes,
-            "contributor_insights": gemini_signals["contributor_impact"],
+            "contributor_insights": contributor_insights,
             "story": story
         }
         

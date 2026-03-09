@@ -28,35 +28,42 @@ class GeminiService:
         - The development phases (e.g., initial development, feature expansion, stabilization).
         - Highlights of architectural shifts based on the 'architecture_changes' listed.
         - Meaningful bursts of activity or lack thereof.
+        - Team dynamics and contributor impact using the 'contributor_insights' data.
         
         CRITICAL INSTRUCTION:
         Do NOT output raw markdown text. You must output a valid JSON array of "Story Cards". 
         Each object in the array should represent a logical section or phase of the story.
-        Do NOT include contributor statistics or individuals in these story cards, keep it strictly to the project's evolution, phases, and architecture.
+        
+        Analyze and explain the team dynamics using the 'contributor_insights' signal:
+        - Identify Core Maintainers (those with significant commit ratios) and their impact.
+        - Highlight High Impact Contributors and how they shaped the codebase.
+        - Discuss Code Ownership (which authors were leading specific modules).
+        - Mention Collaboration Intensity and patterns over time.
+        
+        Each card must follow this JSON structure: {{"title": "Card Title", "content": "Markdown content"}}.
+        Include at least one card specifically explaining the team dynamics and contributor impact.
+        Do not just list the JSON keys; weave them into a narrative (e.g., "Alice emerged as the primary guardian of the auth module...").
         
         Example Output Format:
         [
           {{
-            "title": "Initial Inception & Setup",
-            "content": "The repository began as a small module..."
-          }},
-          {{
-            "title": "Feature Expansion Phase",
-            "content": "Between June 2021 and August 2021, activity spiked..."
+            "title": "The Team Dynamics",
+            "content": "The project was primarily shaped by..."
           }}
         ]
         """
         try:
             response = self.model.generate_content(prompt)
-            # Try to strip markdown JSON formatting if Gemini wraps it
             text = response.text.strip()
-            if text.startswith("```json"):
-                text = text[7:]
-            if text.startswith("```"):
-                text = text[3:]
-            if text.endswith("```"):
-                text = text[:-3]
-                
-            return json.loads(text.strip())
+            
+            # Robust extraction of the JSON array using regex
+            import re
+            match = re.search(r'\[.*\]', text, re.DOTALL)
+            if match:
+                json_str = match.group(0)
+                return json.loads(json_str)
+            
+            # Fallback if regex fails but text might be raw JSON
+            return json.loads(text)
         except Exception as e:
-            return [{"title": "Error generating story", "content": str(e)}]
+            return [{"title": "Error generating story", "content": f"JSON Parse Error: {str(e)}"}]

@@ -47,6 +47,7 @@ class CommitAnalyzer:
             "type": CommitAnalyzer.classify_commit(message),
             "author": author,
             "date": date,
+            "files": files,
             "files_changed": files_changed,
             "additions": stats.get('additions', 0),
             "deletions": stats.get('deletions', 0),
