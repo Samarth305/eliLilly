@@ -18,7 +18,7 @@ class ContributorAnalyzer:
                 "collaboration_intensity": {}
             }
 
-        total_commits = len(commits)
+        # total_commits computed later via sum of values
         contributor_commits = defaultdict(int)
         contributor_impact = defaultdict(int)
         contribution_patterns = defaultdict(lambda: defaultdict(int))
@@ -31,7 +31,7 @@ class ContributorAnalyzer:
             
             # Simple parsing for month (YYYY-MM)
             # Format usually ISO: 2023-01-01T...
-            month = date_str[:7] if len(date_str) >= 7 else "Unknown"
+            month = date_str[:7] if len(date_str) >= 7 else "unknown"
 
             # 1 & 2. Stats per contributor
             contributor_commits[author] += 1
@@ -48,36 +48,44 @@ class ContributorAnalyzer:
             contributor_impact[author] += int(impact)
 
             # 3. Patterns over time
-            if month != "Unknown":
+            if month != "unknown":
                 contribution_patterns[author][month] += 1
                 # 5. Collaboration Intensity
                 monthly_contributors[month].add(author)
 
             # 4. Code Ownership
-            # Extract top-level directory from files if available
-            # Note: CommitAnalyzer.extract_summary usually doesn't include file list by default
-            # unless we modify it or pass details. 
-            # Looking at existing architecture, 'detailed_commits' might have 'files' if we fetched them.
-            # Assuming 'files' is a list of dicts with 'filename'
             files = commit.get("files", [])
             for f in files:
                 filename = f.get("filename", "")
+                
+                # Ignore noise directories for ownership computation
+                if filename.startswith(("tests/", "docs/", ".github/")):
+                    continue
+                    
                 if "/" in filename:
                     module = filename.split("/")[0]
                 else:
                     module = "root"
                 code_ownership[author][module] += 1
 
-        # Finalizing Core Maintainers
+        # Finalizing Core Maintainers (Bus-factor style: 50% of commits)
+        total_commits = sum(contributor_commits.values())
+        sorted_contributors = sorted(contributor_commits.items(), key=lambda x: x[1], reverse=True)
+        
         core_maintainers = []
-        for author, count in contributor_commits.items():
+        cumulative_commits = 0
+        threshold = total_commits * 0.5
+        
+        for author, count in sorted_contributors:
+            cumulative_commits += count
             ratio = count / total_commits
-            if ratio >= 0.2:
-                core_maintainers.append({
-                    "name": author,
-                    "commits": count,
-                    "ratio": round(ratio, 2)
-                })
+            core_maintainers.append({
+                "name": author,
+                "commits": count,
+                "share": round(ratio, 3)
+            })
+            if cumulative_commits >= threshold:
+                break
 
         # Finalizing High Impact
         high_impact = []
@@ -88,14 +96,24 @@ class ContributorAnalyzer:
             })
         high_impact.sort(key=lambda x: x["total_impact"], reverse=True)
 
-        # Finalizing Collaboration Intensity
-        collaboration_intensity = {
-            month: len(authors) for month, authors in monthly_contributors.items()
-        }
+        # Finalizing Collaboration Intensity: UniqueAuthors_month / sqrt(Commits_month)
+        collaboration_intensity = {}
+        monthly_commit_counts = defaultdict(int)
+        for c in commits:
+            d = c.get("date", "")
+            if d:
+                month = d[:7] if len(d) >= 7 else "unknown"
+                monthly_commit_counts[month] += 1
+                
+        for month, authors in monthly_contributors.items():
+            commits_in_month = monthly_commit_counts[month]
+            if commits_in_month > 0:
+                score = len(authors) / math.sqrt(commits_in_month)
+                collaboration_intensity[month] = round(score, 3)
 
         return {
             "core_maintainers": core_maintainers,
-            "high_impact_contributors": high_impact, # All high impact contributors
+            "high_impact_contributors": high_impact,
             "contribution_patterns": {k: dict(v) for k, v in contribution_patterns.items()},
             "code_ownership": {k: dict(v) for k, v in code_ownership.items()},
             "collaboration_intensity": collaboration_intensity

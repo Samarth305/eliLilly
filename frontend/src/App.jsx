@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { 
   GitCommit, Users, GitBranch, Tag, ArrowRight, Loader2, 
-  Activity, BookOpen, Clock, AlertTriangle, Layers, GitPullRequest, GitFork, Shield, Award
+  Activity, BookOpen, Clock, AlertTriangle, Layers, GitPullRequest, GitFork, Shield, Award, Zap
 } from 'lucide-react';
 import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend, Cell
 } from 'recharts';
 import ReactMarkdown from 'react-markdown';
 
@@ -229,6 +229,38 @@ function App() {
                   )}
                 </div>
 
+                {/* Commit Category Breakdown Chart */}
+                {data.commit_distribution && data.commit_distribution.length > 0 && (
+                  <div className="glass-card p-10 hover-glow">
+                    <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
+                      <div className="p-2 bg-emerald-500/10 rounded-xl"><GitCommit className="text-emerald-400 w-6 h-6"/></div>
+                      Commit Category Breakdown
+                    </h2>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.commit_distribution}>
+                          <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" vertical={false}/>
+                          <XAxis dataKey="category" stroke="#64748b" tick={{fontSize: 12, fontWeight: 700, fill: '#cbd5e1'}} />
+                          <YAxis stroke="#64748b" tick={{fontSize: 12, fontWeight: 600}} />
+                          <Tooltip 
+                            cursor={{fill: 'rgba(255,255,255,0.05)'}}
+                            contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }}
+                            itemStyle={{ color: '#10b981', fontWeight: 800 }}
+                          />
+                          <Bar dataKey="count" radius={[8, 8, 0, 0]} barSize={45}>
+                            {data.commit_distribution.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#10b981' : '#3b82f6'} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <p className="mt-6 text-sm text-slate-400 italic">
+                      Breakdown of human commits categorized by local heuristic signals (Keywords, File Patterns, & Diff Stats).
+                    </p>
+                  </div>
+                )}
+
                 {/* Hot Modules & Patterns Chart */}
                 {data.hot_modules && data.hot_modules.length > 0 && (
                   <div className="glass-card p-10 hover-glow">
@@ -293,6 +325,35 @@ function App() {
               {/* Sidebar (Takes up 1/3) */}
               <div className="space-y-10">
                 
+                {/* Efficiency Index Card */}
+                {data.efficiency_index && (
+                  <div className="glass-card p-8 hover-glow border-indigo-500/20 bg-indigo-500/5 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                      <Zap className="w-24 h-24 text-indigo-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-4">
+                      <div className="p-2 bg-indigo-500/10 rounded-xl"><Zap className="text-indigo-400 w-6 h-6"/></div>
+                      Efficiency Index
+                    </h2>
+                    <div className="flex items-baseline gap-2 mb-8">
+                      <span className="text-6xl font-black text-white tracking-tighter">{data.efficiency_index.efficiency}</span>
+                      <span className="text-indigo-400 font-bold uppercase tracking-widest text-xs">Score</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
+                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Velocity</div>
+                        <div className="text-xl font-bold text-white">{data.efficiency_index.velocity}x</div>
+                      </div>
+                      <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
+                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Quality</div>
+                        <div className="text-xl font-bold text-white">{(data.efficiency_index.quality * 100).toFixed(0)}%</div>
+                      </div>
+                    </div>
+                    <p className="mt-6 text-sm text-slate-400 leading-relaxed italic">
+                      Measuring the balance between development speed (velocity) and code value (feature/refactor density).
+                    </p>
+                  </div>
+                )}
                 {/* Milestones Sidebar */}
                 <div className="glass-card p-8 hover-glow">
                   <h2 className="text-2xl font-bold mb-8 flex items-center gap-4">
@@ -387,6 +448,7 @@ function StatCard({ icon, title, value, color }) {
     orange: 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-orange-500/5',
     fuchsia: 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20 shadow-fuchsia-500/5',
     cyan: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 shadow-cyan-500/5',
+    indigo: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-indigo-500/5',
   };
 
   return (

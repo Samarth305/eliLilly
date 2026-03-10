@@ -16,6 +16,11 @@ class GeminiService:
         self.model = genai.GenerativeModel('gemini-2.0-flash')
         
     async def generate_story(self, structured_signals: Dict[str, Any]) -> List[Dict[str, Any]]:
+        # Compress signals (Top 5)
+        structured_signals["development_phases"] = structured_signals.get("development_phases", [])[:5]
+        structured_signals["milestones"] = structured_signals.get("milestones", [])[:5]
+        structured_signals["architecture_changes"] = structured_signals.get("architecture_changes", [])[:5]
+        
         prompt = self._build_prompt(structured_signals)
         
         try:
@@ -41,7 +46,13 @@ class GeminiService:
         payload = {
             "model": "gemma3:4b",
             "prompt": prompt,
-            "stream": False
+            "stream": False,
+            "options": {
+                "num_predict": 120,
+                "temperature": 0.3,
+                "top_k": 40,
+                "top_p": 0.9
+            }
         }
         
         last_exception = None
@@ -77,9 +88,15 @@ class GeminiService:
     def _build_ollama_prompt(self, structured_signals: Dict[str, Any]) -> str:
         repo_name = structured_signals.get("repo_name", "Unknown Repository")
         bus_factor = structured_signals.get("bus_factor", "Unknown")
-        development_phases = json.dumps(structured_signals.get("development_phases", []), indent=2)
-        milestones = json.dumps(structured_signals.get("milestones", []), indent=2)
-        architecture_shifts = json.dumps(structured_signals.get("architecture_changes", []), indent=2)
+        
+        # Compress signals for Ollama (Top 5)
+        dev_phases_data = structured_signals.get("development_phases", [])[:5]
+        milestones_data = structured_signals.get("milestones", [])[:5]
+        arch_changes_data = structured_signals.get("architecture_changes", [])[:5]
+        
+        development_phases = json.dumps(dev_phases_data, indent=2)
+        milestones = json.dumps(milestones_data, indent=2)
+        architecture_shifts = json.dumps(arch_changes_data, indent=2)
         contributors = json.dumps(structured_signals.get("contributor_insights", {}), indent=2)
 
         return f"""
@@ -195,7 +212,7 @@ The goal is to explain the evolution of the repository in a human-readable way.
         
         try:
             parsed = json.loads(text)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError):
             # If not JSON, return as is (let the caller wrap it)
             raise ValueError("Not valid JSON")
 
@@ -203,4 +220,13 @@ The goal is to explain the evolution of the repository in a human-readable way.
             return parsed["story_cards"]
         if isinstance(parsed, list):
             return parsed
+        
+        # Auto-wrap if it's a dict but not in expected format
+        if isinstance(parsed, dict):
+             return [{
+                "title": "Evolution Summary",
+                "period": "Analysis Period",
+                "description": json.dumps(parsed)
+            }]
+            
         return parsed

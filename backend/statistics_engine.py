@@ -118,6 +118,10 @@ class StatisticsEngine:
         for commit in commits:
             files = commit.get("files_changed", [])
             for file_path in files:
+                # Ignore noise directories
+                if file_path.startswith(("tests/", "docs/", ".github/")):
+                    continue
+                    
                 parts = file_path.split('/')
                 if len(parts) > 1:
                     module = parts[0] + '/'
@@ -142,7 +146,8 @@ class StatisticsEngine:
 
         mean_size = statistics.mean(sizes)
         std_size = statistics.stdev(sizes) if len(sizes) > 1 else 0
-        size_threshold = mean_size + (3 * std_size)
+        # Lower threshold to 2.5 sigma for better recall
+        size_threshold = mean_size + (2.5 * std_size)
 
         refactor_keywords = ["refactor", "rewrite", "restructure", "migrate"]
         
@@ -254,6 +259,94 @@ class StatisticsEngine:
                 special_commits += 1
                 
         return round(special_commits / len(commits), 3)
+
+    @staticmethod
+    def calculate_commit_distribution(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Calculate the distribution of commits across different categories.
+        """
+        distribution = defaultdict(int)
+        for c in commits:
+            category = c.get("type", "other")
+            distribution[category] += 1
+            
+        return [{"category": k, "count": v} for k, v in sorted(distribution.items(), key=lambda x: x[1], reverse=True)]
+
+    @staticmethod
+    def calculate_efficiency_index(commits: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Efficiency Index Calculation:
+        Efficiency = 100 * Velocity * Quality
+        Velocity = Commits_last_month / Avg_monthly_commits
+        Quality = (Feature + Refactor + Performance) / TotalCommits
+        """
+        if not commits:
+            return {"efficiency": 0.0, "velocity": 0.0, "quality": 0.0}
+            
+        # 1. Calculate Quality
+        quality_types = ["feature", "refactor", "performance"]
+        quality_count = sum(1 for c in commits if c.get("type") in quality_types)
+        quality = quality_count / len(commits)
+        
+        # 2. Calculate Velocity
+        monthly_commits = defaultdict(int)
+        for c in commits:
+            d = c.get("date")
+            if d:
+                month_str = d[:7] # YYYY-MM
+                monthly_commits[month_str] += 1
+        
+        if not monthly_commits:
+            return {"efficiency": 0.0, "velocity": 0.0, "quality": round(quality, 3)}
+            
+        sorted_months = sorted(monthly_commits.keys())
+        last_month_commits = monthly_commits[sorted_months[-1]]
+        avg_monthly_commits = sum(monthly_commits.values()) / len(monthly_commits)
+        
+        velocity = last_month_commits / avg_monthly_commits if avg_monthly_commits > 0 else 0
+        velocity = min(velocity, 2.0)
+        
+        # 3. Final Efficiency (Log-sqrt stabilization)
+        efficiency = 100 * math.sqrt(velocity) * quality
+        
+        return {
+            "score": round(efficiency, 2),
+            "velocity": round(velocity, 2),
+            "quality": round(quality, 3)
+        }
+
+    @staticmethod
+    def calculate_momentum(commits: List[Dict[str, Any]]) -> float:
+        """
+        Momentum = commits_last_30_days / commits_previous_30_days
+        """
+        if not commits:
+            return 0.0
+            
+        now = datetime.now() # In real usage this would correlate with repo's last commit date or current time
+        last_30 = 0
+        prev_30 = 0
+        
+        # Use commit dates to calculate relative momentum
+        for c in commits:
+            d_str = c.get("date")
+            if not d_str:
+                continue
+            try:
+                dt = parse_date(d_str).replace(tzinfo=None)
+                days_ago = (now - dt).days
+                
+                if days_ago <= 30:
+                    last_30 += 1
+                elif 31 <= days_ago <= 60:
+                    prev_30 += 1
+            except:
+                continue
+                
+        if prev_30 == 0:
+            return float(last_30) if last_30 > 0 else 1.0
+            
+        return round(last_30 / prev_30, 2)
 
     @staticmethod
     def detect_development_phases(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

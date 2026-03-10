@@ -1,6 +1,7 @@
 import httpx
 import os
 import asyncio
+import time
 from typing import Dict, Any, List
 
 GITHUB_API_URL = "https://api.github.com"
@@ -15,7 +16,23 @@ class GitHubService:
         }
         if self.token:
             self.headers["Authorization"] = f"Bearer {self.token}"
-        self.client = httpx.AsyncClient(headers=self.headers, timeout=30.0)
+        
+        # Connection pooling and rate limit synchronization
+        limits = httpx.Limits(max_connections=50)
+        self.client = httpx.AsyncClient(headers=self.headers, timeout=60.0, limits=limits)
+        self._rate_limit_reset = 0
+        self._rate_limit_lock = asyncio.Lock()
+
+    async def _wait_if_rate_limited(self):
+        """Shared guard to prevent multiple parallel tasks from hitting 403 or sleeping redundantly."""
+        now = time.time()
+        if now < self._rate_limit_reset:
+            async with self._rate_limit_lock:
+                # Re-check after acquiring lock
+                wait_duration = self._rate_limit_reset - time.time()
+                if wait_duration > 0:
+                    print(f"Global Rate Limit Active. Centralized wait for {int(wait_duration)}s...")
+                    await asyncio.sleep(wait_duration)
 
     async def _fetch_all_pages(self, url: str, params: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """
@@ -31,11 +48,21 @@ class GitHubService:
         page = 1
         
         while True:
+            await self._wait_if_rate_limited()
             params["page"] = page
             response = await self.client.get(url, params=params)
             
             if response.status_code != 200:
-                print(f"API Error ({response.status_code}) on {url}: {response.text}")
+                if response.status_code == 403:
+                    remaining = response.headers.get("X-RateLimit-Remaining")
+                    if remaining == "0":
+                        reset = int(response.headers["X-RateLimit-Reset"])
+                        self._rate_limit_reset = max(self._rate_limit_reset, reset)
+                        await self._wait_if_rate_limited()
+                        continue # Retry
+                    print(f"Rate limit reached ({response.status_code}) for {url}. Remaining: {remaining}")
+                else:
+                    print(f"API Error ({response.status_code}) on {url}: {response.text}")
                 break
                 
             page_data = response.json()
@@ -48,12 +75,15 @@ class GitHubService:
             if len(page_data) < params["per_page"]:
                 break
                 
-            # Failsafe limit just in case to prevent infinite loops (e.g., 50,000 items)
-            if page >= 500: 
-                print(f"Reached failsafe limit of 500 pages for {url}")
+            if page >= 500 or len(results) > 50000: 
+                print(f"Reached failsafe limit for {url}")
                 break
                 
             page += 1
+            
+            # Rate limit protection: Sleep 0.2s every 5 pages
+            if page % 5 == 0:
+                await asyncio.sleep(0.2)
             
         return results
 
@@ -68,10 +98,19 @@ class GitHubService:
         return await self._fetch_all_pages(url, params={"per_page": per_page})
         
     async def get_commit_details(self, owner: str, repo: str, sha: str) -> Dict[str, Any]:
+        await self._wait_if_rate_limited()
         url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/commits/{sha}"
         response = await self.client.get(url)
         if response.status_code == 200:
             return response.json()
+        elif response.status_code == 403:
+            remaining = response.headers.get("X-RateLimit-Remaining")
+            if remaining == "0":
+                reset = int(response.headers["X-RateLimit-Reset"])
+                self._rate_limit_reset = max(self._rate_limit_reset, reset)
+                await self._wait_if_rate_limited()
+                return await self.get_commit_details(owner, repo, sha) # Retry
+            print(f"Rate limit reached for details ({sha}). Remaining: {remaining}")
         return {}
 
     async def get_branches(self, owner: str, repo: str) -> List[Dict[str, Any]]:

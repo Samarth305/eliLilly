@@ -39,9 +39,10 @@ class AnalysisResponse(BaseModel):
     hot_modules: list
     architecture_changes: list
     contributor_insights: dict
-    bus_factor: int
-    maturity_score: float
     story: list
+    efficiency_index: dict
+    commit_distribution: list
+    momentum: float
 
 @app.post("/analyze-repository", response_model=AnalysisResponse)
 async def analyze_repository(request: AnalyzeRequest):
@@ -63,10 +64,8 @@ async def analyze_repository(request: AnalyzeRequest):
         releases = await github_service.get_releases(owner, repo)
         pull_requests = await github_service.get_pull_requests(owner, repo)
         
-        # 2. Extract commit details concurrently
+        # 2. Extract commit details in batches (200 at a time)
         detailed_commits = []
-        
-        # Use a semaphore to prevent too many concurrent connections and rate limit errors
         sem = asyncio.Semaphore(50)
         
         async def fetch_commit(sha: str):
@@ -76,31 +75,40 @@ async def analyze_repository(request: AnalyzeRequest):
                     return CommitAnalyzer.extract_summary(detail)
                 return None
 
-        # Gather details for ALL commits (no limits)
-        tasks = [asyncio.create_task(fetch_commit(rc.get("sha"))) for rc in raw_commits if rc.get("sha")]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        for res in results:
-            if res and not isinstance(res, Exception):
-                detailed_commits.append(res)
+        # Process in batches of 200 to reduce memory overhead
+        batch_size = 200
+        for i in range(0, len(raw_commits), batch_size):
+            batch = raw_commits[i : i + batch_size]
+            tasks = [asyncio.create_task(fetch_commit(rc.get("sha"))) for rc in batch if rc.get("sha")]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            for res in results:
+                if res and not isinstance(res, Exception):
+                    detailed_commits.append(res)
 
                     
         # 3. Filter commits for noise reduction
         filtered_commits = []
+        bot_keywords = ["dependabot", "github-actions", "renovate", "sync-bot"]
         for c in detailed_commits:
-            message = c.get("message", "").lower()
             author = c.get("author", "").lower()
-            files_changed = len(c.get("files", []))
+            files_changed = len(c.get("files_changed", []))
             
-            # Exclude merging, bot accounts, and 0-file changes
-            if message.startswith("merge"):
+            # Exclude merging (using is_merge flag), bot accounts, and 0-file changes
+            if c.get("is_merge"):
                 continue
-            if "bot" in author:
+            if any(bot in author for bot in bot_keywords):
+                continue
+            if "bot" in author and author != "robot":
                 continue
             if files_changed == 0:
                 continue
             
             filtered_commits.append(c)
+            
+        if not filtered_commits:
+            raise HTTPException(status_code=400, detail="No valid commits found for analysis")
+            
         # 4. Statistical Analysis
         frequencies = StatisticsEngine.compute_commit_frequency(filtered_commits)
         bursts = StatisticsEngine.detect_bursts(frequencies.get("commits_per_week", {}))
@@ -108,6 +116,7 @@ async def analyze_repository(request: AnalyzeRequest):
         dominance = StatisticsEngine.get_contributor_dominance(filtered_commits)
         hot_modules = StatisticsEngine.detect_hot_modules(filtered_commits)
         arch_changes = StatisticsEngine.detect_architecture_changes(filtered_commits)
+        commit_distribution = StatisticsEngine.calculate_commit_distribution(filtered_commits)
         
         # 5. Contributor Analysis
         contributor_insights = ContributorAnalyzer.analyze(filtered_commits)
@@ -120,6 +129,8 @@ async def analyze_repository(request: AnalyzeRequest):
         maturity_score = StatisticsEngine.calculate_maturity_score(filtered_commits)
         collaboration_intensity = StatisticsEngine.calculate_collaboration_score(filtered_commits)
         development_phases = StatisticsEngine.detect_development_phases(filtered_commits)
+        efficiency_index = StatisticsEngine.calculate_efficiency_index(filtered_commits)
+        momentum = StatisticsEngine.calculate_momentum(filtered_commits)
         
         # Structure data for Gemini
         gemini_signals = {
@@ -138,7 +149,9 @@ async def analyze_repository(request: AnalyzeRequest):
             "maturity_score": maturity_score,
             "collaboration_intensity": collaboration_intensity,
             "repo_name": repo,
-            "development_phases": development_phases
+            "development_phases": development_phases,
+            "efficiency_index": efficiency_index,
+            "commit_distribution": commit_distribution
         }
         
         # 5. Connect to Gemini for story analysis
@@ -161,14 +174,23 @@ async def analyze_repository(request: AnalyzeRequest):
             },
             "development_phases": development_phases,
             "milestones": milestones,
-            "contributors": [c.get("login") for c in contributors],
+            "contributors": [
+                {
+                    "name": c.get("login"),
+                    "contributions": c.get("contributions")
+                }
+                for c in contributors
+            ],
             "activity_bursts": bursts,
             "hot_modules": hot_modules,
             "architecture_changes": arch_changes,
             "contributor_insights": contributor_insights,
             "bus_factor": bus_factor,
             "maturity_score": maturity_score,
-            "story": story
+            "story": story,
+            "efficiency_index": efficiency_index,
+            "commit_distribution": commit_distribution,
+            "momentum": momentum
         }
         
         return response
