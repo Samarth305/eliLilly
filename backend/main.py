@@ -12,7 +12,7 @@ from github_service import GitHubService
 from commit_analyzer import CommitAnalyzer
 from statistics_engine import StatisticsEngine
 from milestone_detector import MilestoneDetector
-from gemini_service import GeminiService
+from groq_service import GroqService
 from contributor_analyzer import ContributorAnalyzer
 
 load_dotenv()
@@ -39,9 +39,12 @@ class AnalysisResponse(BaseModel):
     hot_modules: list
     architecture_changes: list
     contributor_insights: dict
+    story: list
+    efficiency_index: dict
+    commit_distribution: list
+    momentum: float
     bus_factor: int
     maturity_score: float
-    story: list
 
 @app.post("/analyze-repository", response_model=AnalysisResponse)
 async def analyze_repository(request: AnalyzeRequest):
@@ -51,56 +54,77 @@ async def analyze_repository(request: AnalyzeRequest):
         raise HTTPException(status_code=400, detail=str(e))
         
     github_service = GitHubService()
-    gemini_service = GeminiService()
+    story_service = GroqService()
     
     try:
-        # 1. Fetch data
-        repo_info = await github_service.get_repository_info(owner, repo)
-        # Ensure we try to read all commits
-        raw_commits = await github_service.get_commits(owner, repo, per_page=100)
-        branches = await github_service.get_branches(owner, repo)
-        contributors = await github_service.get_contributors(owner, repo)
-        releases = await github_service.get_releases(owner, repo)
-        pull_requests = await github_service.get_pull_requests(owner, repo)
+        # 1. Fetch bulk data via GraphQL (Massive efficiency gain)
+        gql_data = await github_service.fetch_repository_data_graphql(owner, repo, commit_limit=100)
+        repo_data = gql_data.get("repository")
+        if not repo_data:
+            raise HTTPException(status_code=404, detail="Repository not found")
+            
+        repo_info = {
+            "full_name": repo_data.get("fullName"),
+            "description": repo_data.get("description"),
+            "stargazers_count": repo_data.get("stargazerCount", 0),
+            "forks_count": repo_data.get("forkCount", 0),
+        }
         
-        # 2. Extract commit details concurrently
+        # Map GraphQL objects for compatibility
+        branch_ref = repo_data.get("defaultBranchRef") or {}
+        history = branch_ref.get("target", {}).get("history", {})
+        raw_commits = history.get("nodes", [])
+        total_commits_count = history.get("totalCount", 0)
+        
+        pull_requests = repo_data.get("pullRequests", {}).get("nodes", [])
+        releases = repo_data.get("releases", {}).get("nodes", [])
+        
+        # 2. Parallel REST Enrichment (Fetch missing file lists)
         detailed_commits = []
-        
-        # Use a semaphore to prevent too many concurrent connections and rate limit errors
         sem = asyncio.Semaphore(50)
         
-        async def fetch_commit(sha: str):
+        async def enrich_commit(gql_commit: dict):
+            sha = gql_commit.get("oid")
             async with sem:
                 detail = await github_service.get_commit_details(owner, repo, sha)
                 if detail:
                     return CommitAnalyzer.extract_summary(detail)
                 return None
 
-        # Gather details for ALL commits (no limits)
-        tasks = [asyncio.create_task(fetch_commit(rc.get("sha"))) for rc in raw_commits if rc.get("sha")]
+        tasks = [asyncio.create_task(enrich_commit(c)) for c in raw_commits if c.get("oid")]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         for res in results:
             if res and not isinstance(res, Exception):
                 detailed_commits.append(res)
 
+        # Still need contributors and branches via REST
+        contributors = await github_service.get_contributors(owner, repo)
+        branches = await github_service.get_branches(owner, repo)
+
                     
         # 3. Filter commits for noise reduction
         filtered_commits = []
+        bot_keywords = ["dependabot", "github-actions", "renovate", "sync-bot"]
         for c in detailed_commits:
-            message = c.get("message", "").lower()
             author = c.get("author", "").lower()
-            files_changed = len(c.get("files", []))
+            files_changed = len(c.get("files_changed", []))
             
-            # Exclude merging, bot accounts, and 0-file changes
-            if message.startswith("merge"):
+            # Exclude merging (using is_merge flag), bot accounts, and 0-file changes
+            if c.get("is_merge"):
                 continue
-            if "bot" in author:
+            if any(bot in author for bot in bot_keywords):
+                continue
+            if "bot" in author and author != "robot":
                 continue
             if files_changed == 0:
                 continue
             
             filtered_commits.append(c)
+            
+        if not filtered_commits:
+            raise HTTPException(status_code=400, detail="No valid commits found for analysis")
+            
         # 4. Statistical Analysis
         frequencies = StatisticsEngine.compute_commit_frequency(filtered_commits)
         bursts = StatisticsEngine.detect_bursts(frequencies.get("commits_per_week", {}))
@@ -108,6 +132,7 @@ async def analyze_repository(request: AnalyzeRequest):
         dominance = StatisticsEngine.get_contributor_dominance(filtered_commits)
         hot_modules = StatisticsEngine.detect_hot_modules(filtered_commits)
         arch_changes = StatisticsEngine.detect_architecture_changes(filtered_commits)
+        commit_distribution = StatisticsEngine.calculate_commit_distribution(filtered_commits)
         
         # 5. Contributor Analysis
         contributor_insights = ContributorAnalyzer.analyze(filtered_commits)
@@ -120,9 +145,11 @@ async def analyze_repository(request: AnalyzeRequest):
         maturity_score = StatisticsEngine.calculate_maturity_score(filtered_commits)
         collaboration_intensity = StatisticsEngine.calculate_collaboration_score(filtered_commits)
         development_phases = StatisticsEngine.detect_development_phases(filtered_commits)
+        efficiency_index = StatisticsEngine.calculate_efficiency_index(filtered_commits)
+        momentum = StatisticsEngine.calculate_momentum(filtered_commits)
         
-        # Structure data for Gemini
-        gemini_signals = {
+        # Structure data for the AI Narrative Engine
+        story_signals = {
             "repository_name": repo_info.get("full_name"),
             "description": repo_info.get("description"),
             "total_commits_analyzed": len(detailed_commits),
@@ -138,11 +165,13 @@ async def analyze_repository(request: AnalyzeRequest):
             "maturity_score": maturity_score,
             "collaboration_intensity": collaboration_intensity,
             "repo_name": repo,
-            "development_phases": development_phases
+            "development_phases": development_phases,
+            "efficiency_index": efficiency_index,
+            "commit_distribution": commit_distribution
         }
         
-        # 5. Connect to Gemini for story analysis
-        story = await gemini_service.generate_story(gemini_signals)
+        # 5. Connect to Groq for story analysis (with Ollama fallback)
+        story = await story_service.generate_story(story_signals)
         
         # Build Response
         # We synthesize 'development_phases' as Gemini discusses them, or as dummy array if we want strictly parsed.
@@ -151,7 +180,7 @@ async def analyze_repository(request: AnalyzeRequest):
         
         response = {
             "repository_stats": {
-                "total_analyzed_commits": len(raw_commits),
+                "total_analyzed_commits": total_commits_count,
                 "total_contributors_count": len(contributors),
                 "branches_count": len(branches),
                 "releases_count": len(releases),
@@ -161,14 +190,23 @@ async def analyze_repository(request: AnalyzeRequest):
             },
             "development_phases": development_phases,
             "milestones": milestones,
-            "contributors": [c.get("login") for c in contributors],
+            "contributors": [
+                {
+                    "name": c.get("login"),
+                    "contributions": c.get("contributions")
+                }
+                for c in contributors
+            ],
             "activity_bursts": bursts,
             "hot_modules": hot_modules,
             "architecture_changes": arch_changes,
             "contributor_insights": contributor_insights,
             "bus_factor": bus_factor,
             "maturity_score": maturity_score,
-            "story": story
+            "story": story,
+            "efficiency_index": efficiency_index,
+            "commit_distribution": commit_distribution,
+            "momentum": momentum
         }
         
         return response

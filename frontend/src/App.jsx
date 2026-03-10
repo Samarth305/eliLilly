@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { 
-  GitCommit, Users, GitBranch, Tag, ArrowRight, Loader2, 
-  Activity, BookOpen, Clock, AlertTriangle, Layers, GitPullRequest, GitFork, Shield, Award
+import {
+  GitCommit, Users, GitBranch, Tag, ArrowRight, Loader2,
+  Activity, BookOpen, Clock, AlertTriangle, Layers, GitPullRequest, GitFork, Shield, Award, Zap
 } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend, Cell
 } from 'recharts';
 import ReactMarkdown from 'react-markdown';
 
@@ -19,7 +19,7 @@ function App() {
   const handleAnalyze = async (e) => {
     e.preventDefault();
     if (!repoUrl.trim()) return;
-    
+
     setLoading(true);
     setError('');
     setData(null);
@@ -54,7 +54,7 @@ function App() {
   return (
     <div className="min-h-screen text-slate-100 p-4 md:p-8 font-sans antialiased">
       <div className="max-w-7xl mx-auto space-y-12">
-        
+
         {/* Header section with enhanced glow */}
         <header className="text-center space-y-6 pt-12 pb-8 relative">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-blue-500/10 blur-[100px] rounded-full -z-10"></div>
@@ -71,21 +71,21 @@ function App() {
 
         {/* Improved Input Section (Glass) */}
         <form onSubmit={handleAnalyze} className="max-w-3xl mx-auto flex items-center space-x-3 glass p-2 rounded-2xl shadow-2xl border-white/5 focus-within:border-blue-500/40 transition-hover">
-          <input 
-            type="url" 
+          <input
+            type="url"
             value={repoUrl}
             onChange={(e) => setRepoUrl(e.target.value)}
-            placeholder="https://github.com/facebook/react" 
+            placeholder="https://github.com/facebook/react"
             required
             className="flex-1 bg-transparent border-none focus:ring-0 text-slate-100 px-6 py-4 outline-none placeholder:text-slate-500 text-lg"
           />
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98]"
           >
-            {loading ? <Loader2 className="w-6 h-6 animate-spin"/> : 'Analyze'}
-            {!loading && <ArrowRight className="w-6 h-6"/>}
+            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Analyze'}
+            {!loading && <ArrowRight className="w-6 h-6" />}
           </button>
         </form>
 
@@ -107,89 +107,89 @@ function App() {
 
         {/* Error State */}
         {error && (
-           <div className="max-w-2xl mx-auto glass border-red-500/20 p-8 rounded-3xl flex items-start gap-6 animate-in slide-in-from-top-4">
-             <div className="p-3 bg-red-500/10 rounded-2xl">
+          <div className="max-w-2xl mx-auto glass border-red-500/20 p-8 rounded-3xl flex items-start gap-6 animate-in slide-in-from-top-4">
+            <div className="p-3 bg-red-500/10 rounded-2xl">
               <AlertTriangle className="w-8 h-8 text-red-400 shrink-0" />
-             </div>
-             <div>
-               <h3 className="text-red-400 font-bold text-xl uppercase tracking-wider">Analysis Failed</h3>
-               <p className="text-red-300/80 mt-2 text-lg leading-relaxed">{error}</p>
-             </div>
-           </div>
+            </div>
+            <div>
+              <h3 className="text-red-400 font-bold text-xl uppercase tracking-wider">Analysis Failed</h3>
+              <p className="text-red-300/80 mt-2 text-lg leading-relaxed">{error}</p>
+            </div>
+          </div>
         )}
 
         {/* Dashboard Content */}
         {data && !loading && (
           <div className="space-y-12 animate-in fade-in slide-in-from-bottom-12 duration-1000 ease-out">
-            
+
             {/* Optimized Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4 px-2">
-              <StatCard icon={<GitCommit className="text-emerald-400"/>} title="Commits" value={data.repository_stats.total_analyzed_commits} color="emerald" />
-              <StatCard icon={<Users className="text-blue-400"/>} title="Contributors" value={data.repository_stats.total_contributors_count} color="blue" />
-              <StatCard icon={<Shield className="text-rose-400"/>} title="Bus Factor" value={data.bus_factor} color="rose" />
-              <StatCard icon={<Award className="text-amber-400"/>} title="Maturity" value={`${(data.maturity_score * 100).toFixed(0)}%`} color="amber" />
-              <StatCard icon={<GitPullRequest className="text-violet-400"/>} title="PRs" value={data.repository_stats.pull_requests_count} color="violet" />
-              <StatCard icon={<GitFork className="text-orange-400"/>} title="Forks" value={data.repository_stats.forks_count} color="orange" />
-              <StatCard icon={<Tag className="text-fuchsia-400"/>} title="Releases" value={data.repository_stats.releases_count} color="fuchsia" />
-              <StatCard icon={<Activity className="text-cyan-400"/>} title="Stars" value={data.repository_stats.stars} color="cyan" />
+              <StatCard icon={<GitCommit className="text-emerald-400" />} title="Commits" value={data.repository_stats.total_analyzed_commits} color="emerald" />
+              <StatCard icon={<Users className="text-blue-400" />} title="Contributors" value={data.repository_stats.total_contributors_count} color="blue" />
+              <StatCard icon={<Shield className="text-rose-400" />} title="Bus Factor" value={data.bus_factor} color="rose" />
+              <StatCard icon={<Award className="text-amber-400" />} title="Maturity" value={`${(data.maturity_score * 100).toFixed(0)}%`} color="amber" />
+              <StatCard icon={<GitPullRequest className="text-violet-400" />} title="PRs" value={data.repository_stats.pull_requests_count} color="violet" />
+              <StatCard icon={<GitFork className="text-orange-400" />} title="Forks" value={data.repository_stats.forks_count} color="orange" />
+              <StatCard icon={<Tag className="text-fuchsia-400" />} title="Releases" value={data.repository_stats.releases_count} color="fuchsia" />
+              <StatCard icon={<Activity className="text-cyan-400" />} title="Stars" value={data.repository_stats.stars} color="cyan" />
             </div>
-            
+
             {/* Contributor Insights Section (Glass) */}
             {data.contributor_insights && (
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="glass-card p-8 col-span-1 lg:col-span-2 hover-glow">
-                   <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
-                      <div className="p-2 bg-blue-500/10 rounded-xl"><Users className="text-blue-400 w-6 h-6"/></div>
-                      Key Team Insights
-                    </h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {data.contributor_insights.high_impact_contributors.slice(0, 4).map((c, i) => (
-                        <div key={i} className="bg-white/5 p-5 rounded-2xl border border-white/5 flex items-center justify-between transition-hover hover:bg-white/10 hover:border-blue-500/30">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500/20 to-emerald-500/20 border border-white/10 flex items-center justify-center text-sm font-black text-white">
-                              {c.name.substring(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <div className="text-sm font-bold text-slate-100">{c.name}</div>
-                              <div className="text-xs text-slate-500 font-medium">Top Contributor</div>
-                            </div>
+                  <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-xl"><Users className="text-blue-400 w-6 h-6" /></div>
+                    Key Team Insights
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {data.contributor_insights.high_impact_contributors.slice(0, 4).map((c, i) => (
+                      <div key={i} className="bg-white/5 p-5 rounded-2xl border border-white/5 flex items-center justify-between transition-hover hover:bg-white/10 hover:border-blue-500/30">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500/20 to-emerald-500/20 border border-white/10 flex items-center justify-center text-sm font-black text-white">
+                            {c.name.substring(0, 2).toUpperCase()}
                           </div>
-                          <div className="text-xs font-black text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-xl border border-blue-500/20">
-                            {c.impact_score || c.total_impact}
+                          <div>
+                            <div className="text-sm font-bold text-slate-100">{c.name}</div>
+                            <div className="text-xs text-slate-500 font-medium">Top Contributor</div>
                           </div>
                         </div>
+                        <div className="text-xs font-black text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-xl border border-blue-500/20">
+                          {c.impact_score || c.total_impact}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="glass-card p-8 flex flex-col justify-between hover-glow">
+                  <div>
+                    <h3 className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-4">Core Maintainers</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {data.contributor_insights.core_maintainers.map((m, i) => (
+                        <span key={i} className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold transition-hover hover:scale-105">
+                          {m.name}
+                        </span>
                       ))}
                     </div>
-                </div>
-                
-                <div className="glass-card p-8 flex flex-col justify-between hover-glow">
-                    <div>
-                      <h3 className="text-slate-400 text-sm font-bold uppercase tracking-widest mb-4">Core Maintainers</h3>
-                      <div className="flex flex-wrap gap-2">
-                         {data.contributor_insights.core_maintainers.map((m, i) => (
-                           <span key={i} className="px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold transition-hover hover:scale-105">
-                             {m.name}
-                           </span>
-                         ))}
-                      </div>
+                  </div>
+                  <div className="pt-6 border-t border-white/5 mt-4">
+                    <div className="text-slate-500 text-xs font-bold uppercase mb-2">Resilience Risk</div>
+                    <div className={`text-lg font-bold ${data.bus_factor < 3 ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {data.bus_factor < 3 ? 'High Coverage Risk' : 'Low Coverage Risk'}
                     </div>
-                    <div className="pt-6 border-t border-white/5 mt-4">
-                      <div className="text-slate-500 text-xs font-bold uppercase mb-2">Resilience Risk</div>
-                      <div className={`text-lg font-bold ${data.bus_factor < 3 ? 'text-red-400' : 'text-emerald-400'}`}>
-                        {data.bus_factor < 3 ? 'High Coverage Risk' : 'Low Coverage Risk'}
-                      </div>
-                    </div>
+                  </div>
                 </div>
 
                 <div className="glass-card p-8 space-y-4 hover-glow flex flex-col justify-center">
-                    <div className="text-slate-400 text-sm font-bold uppercase tracking-widest">Efficiency Index</div>
-                    <div className="flex items-baseline gap-2">
-                      <div className="text-5xl font-black text-blue-400">
-                        {Math.round(data.repository_stats.stars / 1000) % 100}%
-                      </div>
-                      <div className="text-emerald-400 font-bold text-sm">↑ 12%</div>
+                  <div className="text-slate-400 text-sm font-bold uppercase tracking-widest">Efficiency Index</div>
+                  <div className="flex items-baseline gap-2">
+                    <div className="text-5xl font-black text-blue-400">
+                      {Math.round(data.repository_stats.stars / 1000) % 100}%
                     </div>
-                    <div className="text-xs text-slate-500 font-medium leading-relaxed">Heuristic analysis of development velocity and commit quality over time.</div>
+                    <div className="text-emerald-400 font-bold text-sm">↑ 12%</div>
+                  </div>
+                  <div className="text-xs text-slate-500 font-medium leading-relaxed">Heuristic analysis of development velocity and commit quality over time.</div>
                 </div>
               </div>
             )}
@@ -197,11 +197,11 @@ function App() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
               {/* Main Timeline/Story (Takes up 2/3) */}
               <div className="lg:col-span-2 space-y-10">
-                
+
                 {/* AI Story Generation - Cards */}
                 <div className="space-y-8">
                   <h2 className="text-3xl font-black mb-2 flex items-center gap-4">
-                    <div className="p-2 bg-blue-500/10 rounded-2xl"><BookOpen className="text-blue-400 w-8 h-8"/></div>
+                    <div className="p-2 bg-blue-500/10 rounded-2xl"><BookOpen className="text-blue-400 w-8 h-8" /></div>
                     Repository Evolution
                   </h2>
                   {Array.isArray(data.story) ? (
@@ -224,10 +224,42 @@ function App() {
                     ))
                   ) : (
                     <div className="glass-card p-10 text-center">
-                       <p className="text-slate-500 text-lg">Detailed narrative building in progress...</p>
+                      <p className="text-slate-500 text-lg">Detailed narrative building in progress...</p>
                     </div>
                   )}
                 </div>
+
+                {/* Commit Category Breakdown Chart */}
+                {data.commit_distribution && data.commit_distribution.length > 0 && (
+                  <div className="glass-card p-10 hover-glow">
+                    <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
+                      <div className="p-2 bg-emerald-500/10 rounded-xl"><GitCommit className="text-emerald-400 w-6 h-6" /></div>
+                      Commit Category Breakdown
+                    </h2>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={data.commit_distribution}>
+                          <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                          <XAxis dataKey="category" stroke="#64748b" tick={{ fontSize: 12, fontWeight: 700, fill: '#cbd5e1' }} />
+                          <YAxis stroke="#64748b" tick={{ fontSize: 12, fontWeight: 600 }} />
+                          <Tooltip
+                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                            contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }}
+                            itemStyle={{ color: '#10b981', fontWeight: 800 }}
+                          />
+                          <Bar dataKey="count" radius={[8, 8, 0, 0]} barSize={45}>
+                            {data.commit_distribution.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#10b981' : '#3b82f6'} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <p className="mt-6 text-sm text-slate-400 italic">
+                      Breakdown of human commits categorized by local heuristic signals (Keywords, File Patterns, & Diff Stats).
+                    </p>
+                  </div>
+                )}
 
                 {/* Hot Modules & Patterns Chart */}
                 {data.hot_modules && data.hot_modules.length > 0 && (
@@ -235,17 +267,17 @@ function App() {
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
                       <div>
                         <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
-                          <div className="p-2 bg-purple-500/10 rounded-xl"><Layers className="text-purple-400 w-6 h-6"/></div>
+                          <div className="p-2 bg-purple-500/10 rounded-xl"><Layers className="text-purple-400 w-6 h-6" /></div>
                           Hot Modules
                         </h2>
                         <div className="h-72">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={data.hot_modules.slice(0, 10)} layout="vertical">
-                              <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" horizontal={false}/>
+                              <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" horizontal={false} />
                               <XAxis type="number" hide />
-                              <YAxis dataKey="module" type="category" width={90} stroke="#64748b" tick={{fontSize: 12, fontWeight: 600}} />
-                              <Tooltip 
-                                cursor={{fill: 'rgba(255,255,255,0.05)'}}
+                              <YAxis dataKey="module" type="category" width={90} stroke="#64748b" tick={{ fontSize: 12, fontWeight: 600 }} />
+                              <Tooltip
+                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                 contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }}
                                 itemStyle={{ color: '#3b82f6', fontWeight: 800 }}
                               />
@@ -261,27 +293,27 @@ function App() {
                           </ResponsiveContainer>
                         </div>
                       </div>
-                      
+
                       <div>
                         <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
-                          <div className="p-2 bg-emerald-500/10 rounded-xl"><Activity className="text-emerald-400 w-6 h-6"/></div>
-                          Development Velocity
+                          <div className="p-2 bg-emerald-500/10 rounded-xl"><Activity className="text-emerald-400 w-6 h-6" /></div>
+                          Commit Frequency
                         </h2>
                         <div className="h-72">
                           <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={Object.entries(data.contributor_insights.collaboration_intensity || {})
+                            <BarChart data={Object.entries(data.commit_frequencies?.commits_per_month || {})
                               .map(([month, count]) => ({ month, count }))
                               .sort((a, b) => a.month.localeCompare(b.month))
                             }>
-                              <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" vertical={false}/>
-                              <XAxis dataKey="month" stroke="#64748b" tick={{fontSize: 11, fontWeight: 600}} />
-                              <YAxis stroke="#64748b" tick={{fontSize: 11, fontWeight: 600}} />
-                              <Tooltip 
+                              <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                              <XAxis dataKey="month" stroke="#64748b" tick={{ fontSize: 11, fontWeight: 600 }} />
+                              <YAxis stroke="#64748b" tick={{ fontSize: 11, fontWeight: 600 }} />
+                              <Tooltip
                                 contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }}
                                 itemStyle={{ color: '#10b981', fontWeight: 800 }}
                               />
-                              <Line type="monotone" dataKey="count" stroke="#10b981" strokeWidth={5} dot={{ fill: '#10b981', r: 5, strokeWidth: 0 }} activeDot={{ r: 8, stroke: '#fff', strokeWidth: 2 }} />
-                            </LineChart>
+                              <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
+                            </BarChart>
                           </ResponsiveContainer>
                         </div>
                       </div>
@@ -292,11 +324,40 @@ function App() {
 
               {/* Sidebar (Takes up 1/3) */}
               <div className="space-y-10">
-                
+
+                {/* Efficiency Index Card */}
+                {data.efficiency_index && (
+                  <div className="glass-card p-8 hover-glow border-indigo-500/20 bg-indigo-500/5 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                      <Zap className="w-24 h-24 text-indigo-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-4">
+                      <div className="p-2 bg-indigo-500/10 rounded-xl"><Zap className="text-indigo-400 w-6 h-6" /></div>
+                      Efficiency Index
+                    </h2>
+                    <div className="flex items-baseline gap-2 mb-8">
+                      <span className="text-6xl font-black text-white tracking-tighter">{data.efficiency_index.efficiency}</span>
+                      <span className="text-indigo-400 font-bold uppercase tracking-widest text-xs">Score</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
+                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Velocity</div>
+                        <div className="text-xl font-bold text-white">{data.efficiency_index.velocity}x</div>
+                      </div>
+                      <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
+                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Quality</div>
+                        <div className="text-xl font-bold text-white">{(data.efficiency_index.quality * 100).toFixed(0)}%</div>
+                      </div>
+                    </div>
+                    <p className="mt-6 text-sm text-slate-400 leading-relaxed italic">
+                      Measuring the balance between development speed (velocity) and code value (feature/refactor density).
+                    </p>
+                  </div>
+                )}
                 {/* Milestones Sidebar */}
                 <div className="glass-card p-8 hover-glow">
                   <h2 className="text-2xl font-bold mb-8 flex items-center gap-4">
-                    <div className="p-2 bg-orange-400/10 rounded-xl"><Clock className="text-orange-400 w-6 h-6"/></div>
+                    <div className="p-2 bg-orange-400/10 rounded-xl"><Clock className="text-orange-400 w-6 h-6" /></div>
                     Milestones
                   </h2>
                   <div className="space-y-8 relative">
@@ -324,7 +385,7 @@ function App() {
                 {data.architecture_changes && data.architecture_changes.length > 0 && (
                   <div className="glass-card p-8 hover-glow border-emerald-500/10">
                     <h2 className="text-2xl font-bold mb-8 flex items-center gap-4">
-                      <div className="p-2 bg-emerald-400/10 rounded-xl"><Layers className="text-emerald-400 w-6 h-6"/></div>
+                      <div className="p-2 bg-emerald-400/10 rounded-xl"><Layers className="text-emerald-400 w-6 h-6" /></div>
                       Arch Shifts
                     </h2>
                     <ul className="space-y-4">
@@ -345,7 +406,7 @@ function App() {
                 {data.development_phases && data.development_phases.length > 0 && (
                   <div className="glass-card p-8 hover-glow border-indigo-500/10">
                     <h2 className="text-2xl font-bold mb-8 flex items-center gap-4">
-                      <div className="p-2 bg-indigo-500/10 rounded-xl"><GitBranch className="text-indigo-400 w-6 h-6"/></div>
+                      <div className="p-2 bg-indigo-500/10 rounded-xl"><GitBranch className="text-indigo-400 w-6 h-6" /></div>
                       Dev Phases
                     </h2>
                     <div className="space-y-4">
@@ -367,7 +428,7 @@ function App() {
                     </div>
                   </div>
                 )}
-                
+
               </div>
             </div>
           </div>
@@ -387,6 +448,7 @@ function StatCard({ icon, title, value, color }) {
     orange: 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-orange-500/5',
     fuchsia: 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20 shadow-fuchsia-500/5',
     cyan: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 shadow-cyan-500/5',
+    indigo: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-indigo-500/5',
   };
 
   return (

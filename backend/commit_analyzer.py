@@ -58,7 +58,7 @@ class CommitAnalyzer:
             matched = False
             for f in files:
                 for pattern in patterns:
-                    if re.match(pattern, f):
+                    if re.search(pattern, f):
                         signals[category] += 0.3
                         matched = True
                         break
@@ -66,32 +66,19 @@ class CommitAnalyzer:
                     break
 
         # 3. Diff Statistics & Removal Detection (+0.3)
-        is_removal = deletions > (additions * 2)
+        # Lower threshold to 1.5 since real removals often have overlapping additions
+        # Require at least 10 deletions to avoid flagging tiny cleanups as removals
+        is_removal = deletions >= 10 and deletions > (additions * 1.5)
         has_remove_keyword = any(re.search(p, message) for p in cls.KEYWORDS["removal"])
         
         if is_removal and has_remove_keyword:
             signals["removal"] += 0.3
-        elif is_removal:
+        elif deletions >= 10:
             # High deletions but no keyword, partial signal
             signals["removal"] += 0.15
 
-        # Resolve classification based on priority
-        best_category = "other"
-        best_confidence = 0.0
-
-        for category in cls.PRIORITY:
-            score = min(1.0, signals[category])
-            if score > 0:
-                if best_category == "other":
-                    best_category = category
-                    best_confidence = score
-                elif score > best_confidence:
-                    # Only override higher priority if strictly higher confidence
-                    # (Usually we prioritize first match if scores are equal)
-                    pass 
-
         # Final Priority Pass (Highest score vs Priority)
-        # We find all categories with score > 0
+        # Collect candidate categories where signal > 0
         candidate_categories = [cat for cat in cls.PRIORITY if signals[cat] > 0]
         
         if candidate_categories:

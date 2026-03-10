@@ -18,7 +18,16 @@ async def main():
                 data = resp.json()
                 print("Keys received:", list(data.keys()))
                 print("Total analyzed commits:", data.get("repository_stats", {}).get("total_analyzed_commits"))
-                print("Story Length:", len(data.get("story", "")))
+                print("Bus Factor:", data.get("bus_factor"))
+                print("Efficiency Index:", data.get("efficiency_index", {}).get("score"))
+                print("Momentum Score:", data.get("momentum"))
+                
+                phases = data.get("development_phases", [])
+                print(f"Development Phases Detected: {len(phases)}")
+                for i, p in enumerate(phases[:3]):
+                    print(f"  [{i+1}] {p.get('start')} -> {p.get('end')} ({p.get('dominant_commit_type')})")
+                
+                print("Story Cards:", len(data.get("story", [])))
                 with open("test_response.json", "w") as f:
                     json.dump(data, f, indent=2)
                 print("Response saved to test_response.json")

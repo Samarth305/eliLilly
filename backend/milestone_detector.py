@@ -52,32 +52,33 @@ class MilestoneDetector:
 
     @staticmethod
     def detect_module_introductions(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        from collections import defaultdict
         milestones = []
         seen_dirs = set()
+        dir_file_counts = defaultdict(int)
         
         valid_commits = sorted([c for c in commits if c.get("date")], key=lambda x: parse_date(x["date"]))
         
         for commit in valid_commits:
             files = commit.get("files", [])
-            new_files_per_dir = {}
             
             for f in files:
                 status = f.get("status")
+                if not status:
+                    continue
                 filename = f.get("filename", "")
                 if status == "added" and "/" in filename:
                     top_dir = filename.split("/")[0]
                     if top_dir not in seen_dirs:
-                        new_files_per_dir[top_dir] = new_files_per_dir.get(top_dir, 0) + 1
-                        
-            for top_dir, count in new_files_per_dir.items():
-                if count >= 5:
-                    seen_dirs.add(top_dir)
-                    milestones.append({
-                        "type": "module_introduction",
-                        "module": top_dir,
-                        "date": commit["date"],
-                        "event_description": f"New major module introduced: {top_dir}."
-                    })
+                        dir_file_counts[top_dir] += 1
+                        if dir_file_counts[top_dir] >= 5:
+                            seen_dirs.add(top_dir)
+                            milestones.append({
+                                "type": "module_introduction",
+                                "module": top_dir,
+                                "date": commit["date"],
+                                "event_description": f"New major module established: {top_dir} (reached 5 cumulative files)."
+                            })
         return milestones
 
     @staticmethod
@@ -96,17 +97,22 @@ class MilestoneDetector:
                 
         sorted_months = sorted(monthly_contributors.keys())
         for i in range(1, len(sorted_months)):
-            prev_month = sorted_months[i-1]
             curr_month = sorted_months[i]
-            prev_count = len(monthly_contributors[prev_month])
             curr_count = len(monthly_contributors[curr_month])
             
-            # Fire milestone if active contributors double
-            if prev_count > 0 and curr_count >= prev_count * 2 and curr_count > 2:
+            # Comparison using a moving average of the previous 3 months
+            lookback_range = sorted_months[max(0, i-3):i]
+            if not lookback_range:
+                continue
+                
+            avg_prev_count = sum(len(monthly_contributors[m]) for m in lookback_range) / len(lookback_range)
+            
+            # Fire milestone if current count is at least double the moving average
+            if avg_prev_count > 0 and curr_count >= avg_prev_count * 2 and curr_count > 2:
                 milestones.append({
                     "type": "contributor_growth",
                     "date": curr_month + "-01T00:00:00Z",
-                    "event_description": f"Active contributors doubled from {prev_count} to {curr_count}."
+                    "event_description": f"Active contributors surged to {curr_count} (double the 3-month average of {avg_prev_count:.1f})."
                 })
         return milestones
 
