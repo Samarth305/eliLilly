@@ -56,12 +56,13 @@ function App() {
       <div className="max-w-7xl mx-auto space-y-12">
 
         {/* Header section with enhanced glow */}
-        <header className="text-center space-y-6 pt-12 pb-8 relative">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-blue-500/10 blur-[100px] rounded-full -z-10"></div>
+        <header className="text-center space-y-8 pt-16 pb-12 relative flex flex-col items-center">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-500/15 blur-[120px] rounded-full -z-10 pointer-events-none"></div>
+          <div className="absolute top-20 right-1/4 w-[400px] h-[400px] bg-emerald-500/10 blur-[100px] rounded-full -z-10 pointer-events-none"></div>
           <div className="inline-flex items-center justify-center p-4 bg-blue-500/10 rounded-3xl mb-2 glass border-blue-500/20">
             <BookOpen className="w-12 h-12 text-blue-400" />
           </div>
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter bg-gradient-to-br from-white via-blue-200 to-emerald-300 text-transparent bg-clip-text drop-shadow-sm">
+          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-gradient-animate drop-shadow-sm pb-2">
             Git History Storyteller
           </h1>
           <p className="text-slate-400 text-lg md:text-xl max-w-3xl mx-auto font-medium leading-relaxed">
@@ -136,10 +137,10 @@ function App() {
 
             {/* Contributor Insights Section (Glass) */}
             {data.contributor_insights && (
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                <div className="glass-card p-8 col-span-1 lg:col-span-2 hover-glow">
-                  <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
-                    <div className="p-2 bg-blue-500/10 rounded-xl"><Users className="text-blue-400 w-6 h-6" /></div>
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <div className="glass-card p-10 col-span-1 lg:col-span-2 hover-glow flex flex-col justify-between">
+                  <h2 className="text-2xl font-bold mb-8 flex items-center gap-4">
+                    <div className="p-3 bg-blue-500/10 rounded-2xl"><Users className="text-blue-400 w-6 h-6" /></div>
                     Key Team Insights
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -194,28 +195,31 @@ function App() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
               {/* Main Timeline/Story (Takes up 2/3) */}
-              <div className="lg:col-span-2 space-y-10">
+              <div className="lg:col-span-2 space-y-12">
 
                 {/* AI Story Generation - Cards */}
-                <div className="space-y-8">
-                  <h2 className="text-3xl font-black mb-2 flex items-center gap-4">
-                    <div className="p-2 bg-blue-500/10 rounded-2xl"><BookOpen className="text-blue-400 w-8 h-8" /></div>
+                <div className="space-y-12">
+                  <h2 className="text-4xl font-black mb-6 flex items-center gap-4">
+                    <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20"><BookOpen className="text-blue-400 w-8 h-8" /></div>
                     Repository Evolution
                   </h2>
                   {Array.isArray(data.story) ? (
                     data.story.map((card, idx) => (
-                      <div key={idx} className="glass-card p-10 relative overflow-hidden group hover-glow">
-                        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-500 to-emerald-500 opacity-60"></div>
-                        <h3 className="text-2xl font-black mb-2 text-white tracking-tight">{card.title}</h3>
+                      <div key={idx} className="glass-card p-12 relative overflow-hidden group hover-glow transition-all duration-500 hover:-translate-y-1">
+                        <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-blue-500 to-emerald-500 opacity-60 group-hover:opacity-100 group-hover:w-3 transition-all duration-500"></div>
+                        <h3 className="text-3xl font-black mb-4 text-white tracking-tight">{card.title}</h3>
                         {card.period && (
-                          <div className="text-xs font-black text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg w-fit mt-2 mb-6 uppercase tracking-widest border border-blue-500/20">
-                            {card.period}
+                          <div className="flex items-center gap-3 mb-8">
+                            <div className="w-12 h-[2px] bg-blue-500/50"></div>
+                            <div className="text-sm font-mono text-blue-400 tracking-wider">
+                              {card.period}
+                            </div>
                           </div>
                         )}
                         {!card.period && <div className="mb-6"></div>}
-                        <div className="prose prose-invert prose-slate max-w-none prose-p:text-slate-300 prose-p:text-lg prose-p:leading-relaxed prose-strong:text-blue-400 prose-code:text-emerald-400 prose-headings:font-bold">
+                        <div className="prose prose-story max-w-none">
                           <ReactMarkdown>
                             {card.description || card.content}
                           </ReactMarkdown>
@@ -231,12 +235,12 @@ function App() {
 
                 {/* Commit Category Breakdown Chart */}
                 {data.commit_distribution && data.commit_distribution.length > 0 && (
-                  <div className="glass-card p-10 hover-glow">
-                    <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
-                      <div className="p-2 bg-emerald-500/10 rounded-xl"><GitCommit className="text-emerald-400 w-6 h-6" /></div>
+                  <div className="glass-card p-12 hover-glow">
+                    <h2 className="text-3xl font-bold mb-10 flex items-center gap-4">
+                      <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20"><GitCommit className="text-emerald-400 w-6 h-6" /></div>
                       Commit Category Breakdown
                     </h2>
-                    <div className="h-80">
+                    <div className="h-[400px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data.commit_distribution}>
                           <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -263,14 +267,14 @@ function App() {
 
                 {/* Hot Modules & Patterns Chart */}
                 {data.hot_modules && data.hot_modules.length > 0 && (
-                  <div className="glass-card p-10 hover-glow">
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
+                  <div className="glass-card p-12 hover-glow">
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-16">
                       <div>
-                        <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
-                          <div className="p-2 bg-purple-500/10 rounded-xl"><Layers className="text-purple-400 w-6 h-6" /></div>
+                        <h2 className="text-3xl font-bold mb-10 flex items-center gap-4">
+                          <div className="p-3 bg-purple-500/10 rounded-2xl border border-purple-500/20"><Layers className="text-purple-400 w-6 h-6" /></div>
                           Hot Modules
                         </h2>
-                        <div className="h-72">
+                        <div className="h-[350px]">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={data.hot_modules.slice(0, 10)} layout="vertical">
                               <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" horizontal={false} />
@@ -295,11 +299,11 @@ function App() {
                       </div>
 
                       <div>
-                        <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
-                          <div className="p-2 bg-emerald-500/10 rounded-xl"><Activity className="text-emerald-400 w-6 h-6" /></div>
+                        <h2 className="text-3xl font-bold mb-10 flex items-center gap-4">
+                          <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20"><Activity className="text-emerald-400 w-6 h-6" /></div>
                           Commit Frequency
                         </h2>
-                        <div className="h-72">
+                        <div className="h-[350px]">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={Object.entries(data.commit_frequencies?.commits_per_month || {})
                               .map(([month, count]) => ({ month, count }))
@@ -360,18 +364,18 @@ function App() {
                     <div className="p-2 bg-orange-400/10 rounded-xl"><Clock className="text-orange-400 w-6 h-6" /></div>
                     Milestones
                   </h2>
-                  <div className="space-y-8 relative">
-                    <div className="absolute top-0 bottom-0 left-[11px] w-0.5 bg-white/5"></div>
+                  <div className="space-y-12 relative">
+                    <div className="absolute top-0 bottom-0 left-[23px] w-0.5 bg-gradient-to-b from-orange-500/50 via-orange-500/20 to-transparent"></div>
                     {data.milestones.map((m, i) => (
-                      <div key={i} className="relative pl-10 group transition-hover">
-                        <div className="absolute left-0 top-1.5 w-[24px] h-[24px] rounded-full glass border-orange-500/30 flex items-center justify-center z-10 group-hover:scale-110 transition-transform">
-                          <div className="w-2 h-2 rounded-full bg-orange-400"></div>
+                      <div key={i} className="relative pl-16 group transition-hover">
+                        <div className="absolute left-0 top-1 w-[48px] h-[48px] rounded-full glass border-orange-500/30 flex items-center justify-center z-10 group-hover:scale-110 transition-transform duration-500 group-hover:shadow-[0_0_20px_rgba(249,115,22,0.4)] bg-black/80">
+                          <div className="w-3 h-3 rounded-full bg-orange-400 group-hover:bg-orange-300 group-hover:shadow-[0_0_10px_rgba(249,115,22,1)]"></div>
                         </div>
-                        <div className="p-5 rounded-2xl bg-white/5 border border-white/5 group-hover:bg-white/10 group-hover:border-orange-500/20 transition-hover">
-                          <time className="text-xs font-black uppercase text-orange-400 mb-2 block tracking-widest">
-                            {new Date(m.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                        <div className="p-6 rounded-3xl bg-white/5 border border-white/5 group-hover:bg-orange-500/10 group-hover:border-orange-500/30 transition-all duration-500 shadow-xl group-hover:-translate-y-1">
+                          <time className="text-sm font-mono uppercase text-orange-400/80 mb-3 block tracking-widest group-hover:text-orange-400 font-semibold">
+                            {new Date(m.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
                           </time>
-                          <div className="text-sm font-bold text-slate-100 leading-snug">{m.event_description}</div>
+                          <div className="text-[16px] font-medium text-slate-200 leading-relaxed group-hover:text-white">{m.event_description}</div>
                         </div>
                       </div>
                     ))}
@@ -390,12 +394,12 @@ function App() {
                     </h2>
                     <ul className="space-y-4">
                       {data.architecture_changes.slice(0, 5).map((ac, i) => (
-                        <li key={i} className="bg-white/5 p-5 rounded-2xl border border-white/5 hover:bg-white/10 transition-hover">
-                          <div className="flex justify-between items-center mb-3">
-                            <span className="text-[10px] font-black tracking-widest text-slate-500">#{ac.sha?.substring(0, 7).toUpperCase()}</span>
-                            <span className="text-[10px] px-3 py-1 bg-emerald-500/10 text-emerald-300 rounded-lg font-black uppercase tracking-tighter">Impact {ac.impact_score}</span>
+                        <li key={i} className="bg-white/5 p-5 rounded-3xl border border-white/5 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all duration-500 group">
+                          <div className="flex justify-between items-center mb-4">
+                            <span className="text-[11px] font-mono tracking-wider text-slate-400 group-hover:text-emerald-300">#{ac.sha?.substring(0, 7).toUpperCase()}</span>
+                            <span className="text-[10px] px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full font-bold uppercase tracking-widest border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">Impact {ac.impact_score}</span>
                           </div>
-                          <p className="text-sm text-slate-200 font-bold line-clamp-2 leading-relaxed" title={ac.message}>{ac.message}</p>
+                          <p className="text-[15px] text-slate-300 font-light line-clamp-3 leading-relaxed group-hover:text-slate-100" title={ac.message}>{ac.message}</p>
                         </li>
                       ))}
                     </ul>
@@ -404,24 +408,25 @@ function App() {
 
                 {/* Development Phases Sidebar */}
                 {data.development_phases && data.development_phases.length > 0 && (
-                  <div className="glass-card p-8 hover-glow border-indigo-500/10">
-                    <h2 className="text-2xl font-bold mb-8 flex items-center gap-4">
-                      <div className="p-2 bg-indigo-500/10 rounded-xl"><GitBranch className="text-indigo-400 w-6 h-6" /></div>
+                  <div className="glass-card p-10 hover-glow-purple border-indigo-500/10">
+                    <h2 className="text-3xl font-bold mb-8 flex items-center gap-4">
+                      <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20"><GitBranch className="text-indigo-400 w-6 h-6" /></div>
                       Dev Phases
                     </h2>
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       {data.development_phases.map((phase, i) => (
-                        <div key={i} className="p-5 bg-white/5 border border-white/5 rounded-2xl transition-hover hover:border-indigo-500/30 hover:bg-white/10">
-                          <div className="flex justify-between items-center mb-3">
-                            <span className="text-xs font-black text-indigo-400 bg-indigo-500/10 px-3 py-1 flex-1 text-center rounded-xl tracking-widest uppercase">
+                        <div key={i} className="p-6 bg-white/5 border border-white/5 rounded-3xl transition-all duration-500 hover:border-indigo-500/40 hover:bg-indigo-500/10 shadow-lg group hover:-translate-y-1">
+                          <div className="flex justify-between items-center mb-5">
+                            <span className="text-[12px] font-mono text-indigo-300/80 group-hover:text-indigo-200 bg-indigo-500/20 px-4 py-2 flex-1 text-center rounded-full tracking-widest uppercase border border-indigo-500/30 font-semibold shadow-[0_0_15px_rgba(99,102,241,0.1)]">
                               {phase.start} &rarr; {phase.end}
                             </span>
                           </div>
-                          <div className="flex justify-between items-center mt-2">
-                            <div className="text-sm text-slate-200 capitalize font-bold">
-                              {phase.dominant_commit_type.replace(/_/g, ' ')} Focus
+                          <div className="flex justify-between items-center mt-3">
+                            <div className="text-[16px] text-slate-200 capitalize font-medium group-hover:text-white flex items-center gap-3">
+                              <div className="w-2 h-2 rounded-full bg-indigo-400 group-hover:shadow-[0_0_10px_rgba(99,102,241,0.8)]"></div>
+                              {phase.dominant_commit_type.replace(/_/g, ' ')}
                             </div>
-                            <span className="text-xs font-black text-slate-500 bg-black/20 px-3 py-1 rounded-lg">{phase.commit_count} commits</span>
+                            <span className="text-[13px] font-mono text-slate-400 group-hover:text-slate-200 bg-black/30 px-3 py-1.5 rounded-lg border border-white/5">{phase.commit_count} commits</span>
                           </div>
                         </div>
                       ))}
