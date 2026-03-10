@@ -12,7 +12,7 @@ from github_service import GitHubService
 from commit_analyzer import CommitAnalyzer
 from statistics_engine import StatisticsEngine
 from milestone_detector import MilestoneDetector
-from gemini_service import GeminiService
+from groq_service import GroqService
 from contributor_analyzer import ContributorAnalyzer
 
 load_dotenv()
@@ -43,6 +43,8 @@ class AnalysisResponse(BaseModel):
     efficiency_index: dict
     commit_distribution: list
     momentum: float
+    bus_factor: int
+    maturity_score: float
 
 @app.post("/analyze-repository", response_model=AnalysisResponse)
 async def analyze_repository(request: AnalyzeRequest):
@@ -52,7 +54,7 @@ async def analyze_repository(request: AnalyzeRequest):
         raise HTTPException(status_code=400, detail=str(e))
         
     github_service = GitHubService()
-    gemini_service = GeminiService()
+    story_service = GroqService()
     
     try:
         # 1. Fetch bulk data via GraphQL (Massive efficiency gain)
@@ -146,8 +148,8 @@ async def analyze_repository(request: AnalyzeRequest):
         efficiency_index = StatisticsEngine.calculate_efficiency_index(filtered_commits)
         momentum = StatisticsEngine.calculate_momentum(filtered_commits)
         
-        # Structure data for Gemini
-        gemini_signals = {
+        # Structure data for the AI Narrative Engine
+        story_signals = {
             "repository_name": repo_info.get("full_name"),
             "description": repo_info.get("description"),
             "total_commits_analyzed": len(detailed_commits),
@@ -168,8 +170,8 @@ async def analyze_repository(request: AnalyzeRequest):
             "commit_distribution": commit_distribution
         }
         
-        # 5. Connect to Gemini for story analysis
-        story = await gemini_service.generate_story(gemini_signals)
+        # 5. Connect to Groq for story analysis (with Ollama fallback)
+        story = await story_service.generate_story(story_signals)
         
         # Build Response
         # We synthesize 'development_phases' as Gemini discusses them, or as dummy array if we want strictly parsed.

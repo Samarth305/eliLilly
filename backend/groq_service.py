@@ -2,20 +2,20 @@ import os
 import json
 import httpx
 import asyncio
-import google.generativeai as genai
+from groq import AsyncGroq
 from typing import Dict, Any, List
 
-class GeminiService:
+class GroqService:
     def __init__(self):
-        self.api_key = os.getenv("GEMINI_API_KEY")
+        self.api_key = os.getenv("GROQ_API_KEY")
         if not self.api_key:
-            print("Warning: GEMINI_API_KEY not found in environment")
+            print("Warning: GROQ_API_KEY not found in environment")
         else:
             # Diagnostic: Print the prefix to confirm which project is being used
-            print(f"GeminiService initialized with key prefix: {self.api_key[:10]}...")
+            print(f"GroqService initialized with key prefix: {self.api_key[:10]}...")
             
-        genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+        self.client = AsyncGroq(api_key=self.api_key)
+        self.model = "llama-3.3-70b-versatile"
         
     async def generate_story(self, structured_signals: Dict[str, Any]) -> List[Dict[str, Any]]:
         # Compress signals aggressively (Top 5)
@@ -25,18 +25,32 @@ class GeminiService:
         
         prompt = self._build_prompt(structured_signals)
         print("\n" + "="*50)
-        print(f"🚀 [GEMINI] Sending Prompt ({len(prompt)} chars):")
+        print(f"🚀 [GROQ] Sending Prompt ({len(prompt)} chars):")
         print(prompt[:500] + "...\n[TRUNCATED IN LOGS]")
         print("="*50 + "\n")
         
         try:
-            # Using the stable async SDK format
-            response = await self.model.generate_content_async(prompt)
-            text = response.text.strip()
-            print("✅ [GEMINI] Story generated successfully.")
-            return self._parse_json_story(text, source="Gemini")
+            # Using Groq Chat Completions API
+            response = await self.client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a software engineering historian. Always return strict, valid JSON matching the exact schema requested without any markdown blocks or conversational text."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                model=self.model,
+                response_format={"type": "json_object"},
+                temperature=0.3
+            )
+            text = response.choices[0].message.content.strip()
+            print("✅ [GROQ] Story generated successfully.")
+            return self._parse_json_story(text, source="Groq")
         except Exception as e:
-            print(f"Gemini API failed or quota exceeded: {e}")
+            print(f"Groq API failed: {e}")
             print("Falling back to Ollama...")
             return await self.generate_story_with_ollama(structured_signals)
 
@@ -135,21 +149,22 @@ Return EXACTLY this JSON format:
 """
 
     def _build_prompt(self, structured_signals: Dict[str, Any]) -> str:
+        repo_name = structured_signals.get("repository_name", "Unknown Repository")
+        dev_phases_data = structured_signals.get("development_phases", [])
+        milestones_data = structured_signals.get("milestones", [])
+        arch_changes_data = structured_signals.get("architecture_changes", [])
+        contributors_data = structured_signals.get("contributor_insights", {})
+
         return f"""
-        You are analyzing the evolution of a software repository.
+        You are analyzing the evolution of a software repository named: {repo_name}
         
-        You will receive structured development phases extracted from Git history.
+        You will receive structured signals extracted from Git history:
+        1. Development Phases
+        2. Milestones
+        3. Architecture Changes
+        4. Contributor Insights
         
-        Each phase contains:
-        - start
-        - end
-        - commit_count
-        - dominant_commit_type
-        - top_modules
-        - contributors
-        - avg_commit_size
-        
-        Your task is to interpret each phase and explain what likely happened during that period.
+        Your task is to interpret this data and explain what likely happened during the repository's evolution.
         
         Focus on:
         - development activity
@@ -159,21 +174,31 @@ Return EXACTLY this JSON format:
         - collaboration patterns
         - module evolution
         
-        Write a concise narrative for each phase.
+        Write a concise narrative for each phase or major event.
         
         Return JSON in this exact format:
         {{
           "story_cards": [
             {{
-              "title": "Phase title",
-              "period": "start → end",
-              "description": "clear explanation of what happened in the repository during this phase"
+              "title": "Phase or Event title",
+              "period": "start → end or specific date",
+              "description": "clear explanation of what happened in the repository during this time"
             }}
           ]
         }}
         
         Data to analyze:
-        {json.dumps(structured_signals.get('development_phases', []), indent=2, default=str)}
+        --- Development Phases ---
+        {json.dumps(dev_phases_data, indent=2, default=str)}
+        
+        --- Milestones ---
+        {json.dumps(milestones_data, indent=2, default=str)}
+        
+        --- Architecture Changes ---
+        {json.dumps(arch_changes_data, indent=2, default=str)}
+        
+        --- Contributors ---
+        {json.dumps(contributors_data, indent=2, default=str)}
         """
 
     def _parse_json_story(self, text: str, source: str = "Unknown") -> List[Dict[str, Any]]:
