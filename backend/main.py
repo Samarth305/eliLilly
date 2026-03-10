@@ -137,11 +137,12 @@ async def analyze_repository(request: AnalyzeRequest):
             "bus_factor": bus_factor,
             "maturity_score": maturity_score,
             "collaboration_intensity": collaboration_intensity,
+            "repo_name": repo,
             "development_phases": development_phases
         }
         
         # 5. Connect to Gemini for story analysis
-        story = gemini_service.generate_story(gemini_signals)
+        story = await gemini_service.generate_story(gemini_signals)
         
         # Build Response
         # We synthesize 'development_phases' as Gemini discusses them, or as dummy array if we want strictly parsed.
