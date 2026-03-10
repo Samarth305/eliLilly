@@ -97,4 +97,8 @@ Everything above is bundled into a structured JSON payload:
 - **architecture_shifts**
 - **contributor_insights**
 
-This compressed "**Technical DNA**" is truncated to the **Top 5** occurrences for phases, milestones, and architecture shifts before being sent to **Gemini** or **Ollama**. This allows the AI to write a perfect narrative without having to process thousands of raw lines of code or hitting context limits.
+This compressed "**Technical DNA**" is fetched via a hybrid **GraphQL + REST** architecture:
+- **GraphQL**: One primary query fetches repository metadata, languages, PR states, and the bulk of the commit history (messages, authors, and total additions/deletions).
+- **REST Enrichment**: Individual commit file-change lists are fetched in parallel (with Semaphore protection) to feed the module and hot-path analyzers.
+
+This dual-path approach allows the AI to write a perfect narrative without having to process thousands of raw lines of code or hitting context limits.

@@ -55,36 +55,50 @@ async def analyze_repository(request: AnalyzeRequest):
     gemini_service = GeminiService()
     
     try:
-        # 1. Fetch data
-        repo_info = await github_service.get_repository_info(owner, repo)
-        # Ensure we try to read all commits
-        raw_commits = await github_service.get_commits(owner, repo, per_page=100)
-        branches = await github_service.get_branches(owner, repo)
-        contributors = await github_service.get_contributors(owner, repo)
-        releases = await github_service.get_releases(owner, repo)
-        pull_requests = await github_service.get_pull_requests(owner, repo)
+        # 1. Fetch bulk data via GraphQL (Massive efficiency gain)
+        gql_data = await github_service.fetch_repository_data_graphql(owner, repo, commit_limit=100)
+        repo_data = gql_data.get("repository")
+        if not repo_data:
+            raise HTTPException(status_code=404, detail="Repository not found")
+            
+        repo_info = {
+            "full_name": repo_data.get("fullName"),
+            "description": repo_data.get("description"),
+            "stargazers_count": repo_data.get("stargazerCount", 0),
+            "forks_count": repo_data.get("forkCount", 0),
+        }
         
-        # 2. Extract commit details in batches (200 at a time)
+        # Map GraphQL objects for compatibility
+        branch_ref = repo_data.get("defaultBranchRef") or {}
+        history = branch_ref.get("target", {}).get("history", {})
+        raw_commits = history.get("nodes", [])
+        total_commits_count = history.get("totalCount", 0)
+        
+        pull_requests = repo_data.get("pullRequests", {}).get("nodes", [])
+        releases = repo_data.get("releases", {}).get("nodes", [])
+        
+        # 2. Parallel REST Enrichment (Fetch missing file lists)
         detailed_commits = []
         sem = asyncio.Semaphore(50)
         
-        async def fetch_commit(sha: str):
+        async def enrich_commit(gql_commit: dict):
+            sha = gql_commit.get("oid")
             async with sem:
                 detail = await github_service.get_commit_details(owner, repo, sha)
                 if detail:
                     return CommitAnalyzer.extract_summary(detail)
                 return None
 
-        # Process in batches of 200 to reduce memory overhead
-        batch_size = 200
-        for i in range(0, len(raw_commits), batch_size):
-            batch = raw_commits[i : i + batch_size]
-            tasks = [asyncio.create_task(fetch_commit(rc.get("sha"))) for rc in batch if rc.get("sha")]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for res in results:
-                if res and not isinstance(res, Exception):
-                    detailed_commits.append(res)
+        tasks = [asyncio.create_task(enrich_commit(c)) for c in raw_commits if c.get("oid")]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for res in results:
+            if res and not isinstance(res, Exception):
+                detailed_commits.append(res)
+
+        # Still need contributors and branches via REST
+        contributors = await github_service.get_contributors(owner, repo)
+        branches = await github_service.get_branches(owner, repo)
 
                     
         # 3. Filter commits for noise reduction
@@ -164,7 +178,7 @@ async def analyze_repository(request: AnalyzeRequest):
         
         response = {
             "repository_stats": {
-                "total_analyzed_commits": len(raw_commits),
+                "total_analyzed_commits": total_commits_count,
                 "total_contributors_count": len(contributors),
                 "branches_count": len(branches),
                 "releases_count": len(releases),

@@ -22,6 +22,94 @@ class GitHubService:
         self.client = httpx.AsyncClient(headers=self.headers, timeout=60.0, limits=limits)
         self._rate_limit_reset = 0
         self._rate_limit_lock = asyncio.Lock()
+        self.graphql_url = "https://api.github.com/graphql"
+
+    async def _execute_graphql(self, query: str, variables: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Generic GraphQL execution with rate-limit guarding."""
+        await self._wait_if_rate_limited()
+        payload = {"query": query, "variables": variables or {}}
+        response = await self.client.post(self.graphql_url, json=payload)
+        
+        if response.status_code == 403:
+            remaining = response.headers.get("X-RateLimit-Remaining")
+            if remaining == "0":
+                reset = int(response.headers["X-RateLimit-Reset"])
+                self._rate_limit_reset = max(self._rate_limit_reset, reset)
+                await self._wait_if_rate_limited()
+                return await self._execute_graphql(query, variables)
+        
+        response.raise_for_status()
+        data = response.json()
+        if "errors" in data:
+            raise Exception(f"GraphQL Errors: {data['errors']}")
+        return data.get("data", {})
+
+    async def fetch_repository_data_graphql(self, owner: str, repo: str, commit_limit: int = 100) -> Dict[str, Any]:
+        """Fetch repo metadata, PRs, releases, and initial commit history in one go."""
+        query = """
+        query($owner: String!, $repo: String!, $limit: Int!) {
+          repository(owner: $owner, name: $repo) {
+            name
+            fullName: nameWithOwner
+            description
+            stargazerCount
+            forkCount
+            languages(first: 10, orderBy: {field: SIZE, direction: DESC}) {
+              edges {
+                size
+                node { name }
+              }
+            }
+            defaultBranchRef {
+              name
+              target {
+                ... on Commit {
+                  history(first: $limit) {
+                    totalCount
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
+                    nodes {
+                      oid
+                      message
+                      committedDate
+                      additions
+                      deletions
+                      changedFiles
+                      author {
+                        name
+                        user { login }
+                      }
+                      parents { totalCount }
+                    }
+                  }
+                }
+              }
+            }
+            pullRequests(first: 100, states: [OPEN, CLOSED, MERGED]) {
+              totalCount
+              nodes {
+                title
+                state
+                createdAt
+                mergedAt
+              }
+            }
+            releases(first: 50, orderBy: {field: CREATED_AT, direction: DESC}) {
+              totalCount
+              nodes {
+                tagName
+                name
+                publishedAt
+                createdAt
+              }
+            }
+          }
+        }
+        """
+        variables = {"owner": owner, "repo": repo, "limit": commit_limit}
+        return await self._execute_graphql(query, variables)
 
     async def _wait_if_rate_limited(self):
         """Shared guard to prevent multiple parallel tasks from hitting 403 or sleeping redundantly."""
