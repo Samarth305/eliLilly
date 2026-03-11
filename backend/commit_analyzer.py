@@ -4,15 +4,29 @@ from typing import Dict, Any, Tuple
 class CommitAnalyzer:
     # --- Keyword Dictionaries ---
     KEYWORDS = {
-        "feature": [r'\badd\b', r'\bimplement\b', r'\bfeature\b', r'\bfeat\b', r'\bintroduce\b', r'\bcreate\b', r'\bsupport\b', r'\benable\b'],
-        "bugfix": [r'\bfix\b', r'\bbug\b', r'\bresolve\b', r'\bpatch\b', r'\bhotfix\b', r'\bcorrect\b', r'\brepair\b'],
-        "refactor": [r'\brefactor\b', r'\bcleanup\b', r'\brewrite\b', r'\brestructure\b', r'\bsimplify\b', r'\brename\b'],
-        "performance": [r'\boptimize\b', r'\bperf\b', r'\bperformance\b', r'\bspeed\b', r'\bfaster\b', r'\blatency\b'],
-        "testing": [r'\btest\b', r'\btests\b', r'\btesting\b', r'\bspec\b'],
-        "documentation": [r'\bdocs\b', r'\bdoc\b', r'\breadme\b', r'\bcomment\b'],
-        "infrastructure": [r'\bdocker\b', r'\bci\b', r'\bpipeline\b', r'\bworkflow\b', r'\bjenkins\b', r'\bgithub-actions\b', r'\bbuild\b', r'\bdeployment\b'],
-        "dependency": [r'\bupgrade\b', r'\bupdate\b', r'\bbump\b', r'\bdependency\b', r'\bdependencies\b', r'\bpackage\b', r'\bversion\b'],
-        "removal": [r'\bremove\b', r'\bdelete\b', r'\bdrop\b']
+        "feature": [r'\badd\b', r'\bimplement\b', r'\bfeature\b', r'\bfeat\b', r'\bintroduce\b', r'\bcreate\b', r'\bsupport\b', r'\benable\b', r'\binit\b', r'\bsetup\b', r'\bscaffold\b', r'\bbootstrap\b', r'\bextend\b', r'\bstart\b'],
+        "bugfix": [r'\bfix\b', r'\bbug\b', r'\bresolve\b', r'\bpatch\b', r'\bhotfix\b', r'\bcorrect\b', r'\brepair\b', r'\bissue\b', r'\berror\b', r'\bfail\b', r'\bhandle\b', r'\bprevent\b', r'\bavoid\b', r'\bcrash\b', r'\bfault\b'],
+        "refactor": [r'\brefactor\b', r'\bcleanup\b', r'\brewrite\b', r'\brestructure\b', r'\bsimplify\b', r'\brename\b', r'\bimprove\b', r'\borganize\b', r'\bstructure\b', r'\bformat\b', r'\bsplit\b', r'\bmerge\b', r'cleanup unused'],
+        "performance": [r'\boptimize\b', r'\bperf\b', r'\bperformance\b', r'\bspeed\b', r'\bfaster\b', r'\blatency\b', r'\bcache\b', r'\bmemory\b', r'\bcpu\b', r'\bopt\b', r'\bthroughput\b'],
+        "testing": [r'\btest\b', r'\btests\b', r'\btesting\b', r'\bspec\b', r'\bmock\b', r'\bfixture\b', r'\bcoverage\b', r'\bassert\b', r'\btestcase\b'],
+        "documentation": [r'\bdocs\b', r'\bdoc\b', r'\breadme\b', r'\bcomment\b', r'\bguide\b', r'\btutorial\b', r'\bexample\b', r'\bchangelog\b', r'\busage\b'],
+        "infrastructure": [r'\bdocker\b', r'\bci\b', r'\bpipeline\b', r'\bworkflow\b', r'\bjenkins\b', r'\bgithub-actions\b', r'\bbuild\b', r'\bdeployment\b', r'k8s', r'kubernetes', r'\bterraform\b', r'\bhelm\b', r'\benv\b', r'\bdeploy\b', r'\bconfig\b', r'\bconfiguration\b'],
+        "dependency": [r'\bupgrade\b', r'\bupdate\b', r'\bbump\b', r'\bdependency\b', r'\bdependencies\b', r'\bpackage\b', r'\bversion\b', r'\bdeps\b', r'\blockfile\b', r'\brequirements\b', r'\byarn\b', r'\bpip\b', r'\bnpm\b'],
+        "removal": [r'\bremove\b', r'\bdelete\b', r'\bdrop\b', r'\bdeprecate\b', r'\bobsolete\b', r'\bcleanup unused\b'],
+        "security": [r'\bsecurity\b', r'\bvulnerability\b', r'\bsanitize\b', r'\bescape\b', r'\bxss\b', r'\bcsrf\b', r'\bpermission\b', r'\bauthentication\b', r'\bauthorization\b', r'\bauth\b'],
+        "chore": [r'\bchore\b', r'\blint\b', r'\bstyle\b', r'\bformat\b', r'\bcode style\b', r'\bcleanup formatting\b']
+    }
+
+    # --- Conventional Commit Prefixes ---
+    CONVENTIONAL_PREFIXES = {
+        "feature": r'^feat(\(.*\))?:',
+        "bugfix": r'^fix(\(.*\))?:',
+        "documentation": r'^docs(\(.*\))?:',
+        "testing": r'^test(\(.*\))?:',
+        "performance": r'^perf(\(.*\))?:',
+        "refactor": r'^refactor(\(.*\))?:',
+        "chore": r'^chore(\(.*\))?:',
+        "security": r'^security(\(.*\))?:'
     }
 
     # --- File Patterns ---
@@ -25,7 +39,9 @@ class CommitAnalyzer:
     # --- Priority Order ---
     PRIORITY = [
         "removal",
+        "security",
         "dependency",
+        "chore",
         "infrastructure",
         "testing",
         "documentation",
@@ -45,6 +61,12 @@ class CommitAnalyzer:
         deletions = commit.get("deletions", 0)
 
         signals = {category: 0.0 for category in cls.PRIORITY}
+
+        # 0. Conventional Commit Prefix Signals (+0.4)
+        for category, pattern in cls.CONVENTIONAL_PREFIXES.items():
+            if re.match(pattern, message):
+                signals[category] += 0.4
+                break # Only one conventional prefix per message
 
         # 1. Keyword Signals (+0.4)
         for category, patterns in cls.KEYWORDS.items():
