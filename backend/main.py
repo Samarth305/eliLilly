@@ -1,6 +1,7 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import uvicorn
 from dotenv import load_dotenv
@@ -27,8 +28,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class ProgressManager:
+    def __init__(self):
+        self.queues = {}
+
+    def get_queue(self, request_id: str):
+        if request_id not in self.queues:
+            self.queues[request_id] = asyncio.Queue()
+        return self.queues[request_id]
+
+    async def push(self, request_id: str, message: str):
+        if request_id in self.queues:
+            await self.queues[request_id].put(message)
+
+    def remove_queue(self, request_id: str):
+        if request_id in self.queues:
+            del self.queues[request_id]
+
+progress_manager = ProgressManager()
+
+@app.get("/analyze-stream")
+async def analyze_stream(request_id: str = Query(...)):
+    async def event_generator():
+        queue = progress_manager.get_queue(request_id)
+        try:
+            while True:
+                message = await queue.get()
+                if message == "DONE":
+                    break
+                yield f"data: {message}\n\n"
+        finally:
+            progress_manager.remove_queue(request_id)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
 class AnalyzeRequest(BaseModel):
     repo_url: str
+    request_id: str = None
 
 class AnalysisResponse(BaseModel):
     repository_stats: dict
@@ -39,6 +75,8 @@ class AnalysisResponse(BaseModel):
     hot_modules: list
     architecture_changes: list
     contributor_insights: dict
+    repo_overview: str
+    commit_frequencies: dict
     story: list
     efficiency_index: dict
     commit_distribution: list
@@ -48,6 +86,12 @@ class AnalysisResponse(BaseModel):
 
 @app.post("/analyze-repository", response_model=AnalysisResponse)
 async def analyze_repository(request: AnalyzeRequest):
+    request_id = request.request_id
+    
+    async def update_progress(msg: str):
+        if request_id:
+            await progress_manager.push(request_id, msg)
+
     try:
         owner, repo = parse_github_url(request.repo_url)
     except ValueError as e:
@@ -57,6 +101,7 @@ async def analyze_repository(request: AnalyzeRequest):
     story_service = GroqService()
     
     try:
+        await update_progress("Fetching repository metadata...")
         # 1. Fetch bulk data via GraphQL (Massive efficiency gain)
         gql_data = await github_service.fetch_repository_data_graphql(owner, repo, commit_limit=100)
         repo_data = gql_data.get("repository")
@@ -79,6 +124,8 @@ async def analyze_repository(request: AnalyzeRequest):
         pull_requests = repo_data.get("pullRequests", {}).get("nodes", [])
         releases = repo_data.get("releases", {}).get("nodes", [])
         
+        await update_progress("Downloading commit history...")
+        
         # 2. Parallel REST Enrichment (Fetch missing file lists)
         detailed_commits = []
         sem = asyncio.Semaphore(50)
@@ -98,12 +145,17 @@ async def analyze_repository(request: AnalyzeRequest):
             if res and not isinstance(res, Exception):
                 detailed_commits.append(res)
 
+        await update_progress("Analyzing commit patterns...")
+
+        # 1.5 Fetch README and generate overview
+        readme_content = await github_service.get_readme(owner, repo)
+        repo_overview = await story_service.generate_overview(repo, readme_content)
+
         # Still need contributors and branches via REST
         contributors = await github_service.get_contributors(owner, repo)
         branches = await github_service.get_branches(owner, repo)
 
-                    
-        # 3. Filter commits for noise reduction
+        # 2. Parallel REST Enrichment (Fetch missing file lists)
         filtered_commits = []
         bot_keywords = ["dependabot", "github-actions", "renovate", "sync-bot"]
         for c in detailed_commits:
@@ -125,6 +177,8 @@ async def analyze_repository(request: AnalyzeRequest):
         if not filtered_commits:
             raise HTTPException(status_code=400, detail="No valid commits found for analysis")
             
+        await update_progress("Computing repository metrics...")
+            
         # 4. Statistical Analysis
         frequencies = StatisticsEngine.compute_commit_frequency(filtered_commits)
         bursts = StatisticsEngine.detect_bursts(frequencies.get("commits_per_week", {}))
@@ -140,6 +194,8 @@ async def analyze_repository(request: AnalyzeRequest):
         # 6. Milestone Detection
         milestones = MilestoneDetector.generate_milestones(filtered_commits, releases)
         
+        await update_progress("Detecting development phases...")
+        
         # 7. Advanced Analytics
         bus_factor = StatisticsEngine.calculate_bus_factor(filtered_commits)
         maturity_score = StatisticsEngine.calculate_maturity_score(filtered_commits)
@@ -147,6 +203,8 @@ async def analyze_repository(request: AnalyzeRequest):
         development_phases = StatisticsEngine.detect_development_phases(filtered_commits)
         efficiency_index = StatisticsEngine.calculate_efficiency_index(filtered_commits)
         momentum = StatisticsEngine.calculate_momentum(filtered_commits)
+        
+        await update_progress("Identifying architecture shifts...")
         
         # Structure data for the AI Narrative Engine
         story_signals = {
@@ -171,7 +229,10 @@ async def analyze_repository(request: AnalyzeRequest):
         }
         
         # 5. Connect to Groq for story analysis (with Ollama fallback)
+        await update_progress("Generating AI narrative...")
         story = await story_service.generate_story(story_signals)
+        
+        await update_progress("DONE")
         
         # Build Response
         # We synthesize 'development_phases' as Gemini discusses them, or as dummy array if we want strictly parsed.
@@ -203,6 +264,8 @@ async def analyze_repository(request: AnalyzeRequest):
             "contributor_insights": contributor_insights,
             "bus_factor": bus_factor,
             "maturity_score": maturity_score,
+            "repo_overview": repo_overview,
+            "commit_frequencies": frequencies,
             "story": story,
             "efficiency_index": efficiency_index,
             "commit_distribution": commit_distribution,

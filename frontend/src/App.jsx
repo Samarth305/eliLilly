@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   GitCommit, Users, GitBranch, Tag, ArrowRight, Loader2,
-  Activity, BookOpen, Clock, AlertTriangle, Layers, GitPullRequest, GitFork, Shield, Award, Zap
+  Activity, BookOpen, Clock, AlertTriangle, Layers, GitPullRequest, GitFork, Shield, Award, Zap,
+  CheckCircle2, Circle
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend, Cell
@@ -15,15 +16,70 @@ function App() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [loadingStep, setLoadingStep] = useState('');
+  const [completedSteps, setCompletedSteps] = useState([]);
+
+  const headerRef = useRef(null);
+  const inputAreaRef = useRef(null);
+  const loadingRef = useRef(null);
+  const dashboardRef = useRef(null);
+
+  // Auto-scroll to results when data loads
+  useEffect(() => {
+    if (data && !loading) {
+      inputAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [data, loading]);
+
+  // Auto-scroll to loading panel when it appears
+  useEffect(() => {
+    if (loading) {
+      loadingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [loading]);
+
+  const steps = [
+    "Fetching repository metadata...",
+    "Downloading commit history...",
+    "Analyzing commit patterns...",
+    "Computing repository metrics...",
+    "Detecting development phases...",
+    "Identifying architecture shifts...",
+    "Generating AI narrative..."
+  ];
 
   const handleAnalyze = async (e) => {
     e.preventDefault();
     if (!repoUrl.trim()) return;
 
+    const requestId = crypto.randomUUID();
     setLoading(true);
     setError('');
     setData(null);
-    setLoadingStep('Fetching repository data and history...');
+    setCompletedSteps([]);
+    setLoadingStep(steps[0]);
+
+    // Open SSE connection
+    const eventSource = new EventSource(`http://localhost:8000/analyze-stream?request_id=${requestId}`);
+    
+    eventSource.onmessage = (event) => {
+      const message = event.data;
+      if (message === "DONE") {
+        setCompletedSteps(prev => [...new Set([...prev, steps[steps.length - 1]])]);
+        eventSource.close();
+      } else {
+        setLoadingStep(message);
+        // Find the index of the current message in our steps
+        const currentIndex = steps.indexOf(message);
+        if (currentIndex > 0) {
+          // Mark all previous steps as completed
+          setCompletedSteps(steps.slice(0, currentIndex));
+        }
+      }
+    };
+
+    eventSource.onerror = () => {
+      eventSource.close();
+    };
 
     try {
       // In production, configure environment variables for the API base URL.
@@ -32,7 +88,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ repo_url: repoUrl })
+        body: JSON.stringify({ repo_url: repoUrl, request_id: requestId })
       });
 
       if (!response.ok) {
@@ -40,7 +96,6 @@ function App() {
         throw new Error(errData.detail || 'Analysis failed. Make sure tokens are set and URL is valid.');
       }
 
-      setLoadingStep('Generating insights and story...');
       const result = await response.json();
       setData(result);
     } catch (err) {
@@ -48,6 +103,7 @@ function App() {
     } finally {
       setLoading(false);
       setLoadingStep('');
+      eventSource.close();
     }
   };
 
@@ -56,7 +112,7 @@ function App() {
       <div className="max-w-7xl mx-auto space-y-12">
 
         {/* Header section with enhanced glow */}
-        <header className="text-center space-y-8 pt-16 pb-12 relative flex flex-col items-center">
+        <header ref={headerRef} className="text-center space-y-8 pt-16 pb-12 relative flex flex-col items-center">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-500/15 blur-[120px] rounded-full -z-10 pointer-events-none"></div>
           <div className="absolute top-20 right-1/4 w-[400px] h-[400px] bg-emerald-500/10 blur-[100px] rounded-full -z-10 pointer-events-none"></div>
           <div className="inline-flex items-center justify-center p-4 bg-blue-500/10 rounded-3xl mb-2 glass border-blue-500/20">
@@ -71,7 +127,7 @@ function App() {
         </header>
 
         {/* Improved Input Section (Glass) */}
-        <form onSubmit={handleAnalyze} className="max-w-3xl mx-auto flex items-center space-x-3 glass p-2 rounded-2xl shadow-2xl border-white/5 focus-within:border-blue-500/40 transition-hover">
+        <form ref={inputAreaRef} onSubmit={handleAnalyze} className="max-w-3xl mx-auto flex items-center space-x-3 glass p-2 rounded-2xl shadow-2xl border-white/5 focus-within:border-blue-500/40 transition-hover">
           <input
             type="url"
             value={repoUrl}
@@ -92,17 +148,12 @@ function App() {
 
         {/* Enchanced Loading State */}
         {loading && (
-          <div className="flex flex-col items-center justify-center py-24 space-y-8 animate-in fade-in zoom-in duration-500">
-            <div className="relative">
-              <div className="absolute inset-0 bg-blue-400 blur-3xl opacity-30 rounded-full animate-pulse"></div>
-              <div className="relative z-10 p-8 glass rounded-full">
-                <Activity className="w-20 h-20 text-blue-400 animate-pulse" />
-              </div>
-            </div>
-            <div className="text-center space-y-2">
-              <p className="text-white text-2xl font-bold tracking-tight">{loadingStep}</p>
-              <p className="text-slate-500 font-medium">Using Gemini Flash 2.0 to weave the narrative...</p>
-            </div>
+          <div ref={loadingRef} className="w-full">
+            <LoadingPanel 
+              currentStep={loadingStep} 
+              completedSteps={completedSteps} 
+              steps={steps} 
+            />
           </div>
         )}
 
@@ -134,6 +185,20 @@ function App() {
               <StatCard icon={<Tag className="text-fuchsia-400" />} title="Releases" value={data.repository_stats.releases_count} color="fuchsia" />
               <StatCard icon={<Activity className="text-cyan-400" />} title="Stars" value={data.repository_stats.stars} color="cyan" />
             </div>
+
+            {/* AI Repository Overview (New Section) */}
+            {data.repo_overview && (
+              <div className="glass-card p-8 md:p-10 border-blue-500/20 bg-blue-500/5 hover-glow relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500/50 group-hover:w-2 transition-all duration-500"></div>
+                <h2 className="text-2xl font-bold mb-4 flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/10 rounded-xl"><BookOpen className="text-blue-400 w-5 h-5" /></div>
+                  Project Intelligence Overview
+                </h2>
+                <div className="text-slate-200 text-lg leading-relaxed font-light italic">
+                  "{data.repo_overview}"
+                </div>
+              </div>
+            )}
 
             {/* Contributor Insights Section (Glass) */}
             {data.contributor_insights && (
@@ -182,16 +247,34 @@ function App() {
                   </div>
                 </div>
 
-                <div className="glass-card p-8 space-y-4 hover-glow flex flex-col justify-center">
-                  <div className="text-slate-400 text-sm font-bold uppercase tracking-widest">Efficiency Index</div>
-                  <div className="flex items-baseline gap-2">
-                    <div className="text-5xl font-black text-blue-400">
-                      {Math.round(data.repository_stats.stars / 1000) % 100}%
+                {/* Relocated Efficiency Index */}
+                {data.efficiency_index && (
+                  <div className="glass-card p-8 hover-glow border-indigo-500/20 bg-indigo-500/5 relative overflow-hidden flex flex-col justify-between">
+                    <div className="absolute top-0 right-0 p-4 opacity-10">
+                      <Zap className="w-24 h-24 text-indigo-400" />
                     </div>
-                    <div className="text-emerald-400 font-bold text-sm">↑ 12%</div>
+                    <div>
+                      <h2 className="text-xl font-bold mb-6 flex items-center gap-4">
+                        <div className="p-2 bg-indigo-500/10 rounded-xl"><Zap className="text-indigo-400 w-5 h-5" /></div>
+                        Efficiency Index
+                      </h2>
+                      <div className="flex items-baseline gap-2 mb-8">
+                        <span className="text-5xl font-black text-white tracking-tighter">{data.efficiency_index.score}</span>
+                        <span className="text-indigo-400 font-bold uppercase tracking-widest text-[10px]">Score</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-black/20 p-3 rounded-2xl border border-white/5">
+                        <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Velocity</div>
+                        <div className="text-lg font-bold text-white">{data.efficiency_index.velocity}x</div>
+                      </div>
+                      <div className="bg-black/20 p-3 rounded-2xl border border-white/5">
+                        <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Quality</div>
+                        <div className="text-lg font-bold text-white">{(data.efficiency_index.quality * 100).toFixed(0)}%</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-500 font-medium leading-relaxed">Heuristic analysis of development velocity and commit quality over time.</div>
-                </div>
+                )}
               </div>
             )}
 
@@ -329,35 +412,6 @@ function App() {
               {/* Sidebar (Takes up 1/3) */}
               <div className="space-y-10">
 
-                {/* Efficiency Index Card */}
-                {data.efficiency_index && (
-                  <div className="glass-card p-8 hover-glow border-indigo-500/20 bg-indigo-500/5 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10">
-                      <Zap className="w-24 h-24 text-indigo-400" />
-                    </div>
-                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-4">
-                      <div className="p-2 bg-indigo-500/10 rounded-xl"><Zap className="text-indigo-400 w-6 h-6" /></div>
-                      Efficiency Index
-                    </h2>
-                    <div className="flex items-baseline gap-2 mb-8">
-                      <span className="text-6xl font-black text-white tracking-tighter">{data.efficiency_index.efficiency}</span>
-                      <span className="text-indigo-400 font-bold uppercase tracking-widest text-xs">Score</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
-                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Velocity</div>
-                        <div className="text-xl font-bold text-white">{data.efficiency_index.velocity}x</div>
-                      </div>
-                      <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
-                        <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Quality</div>
-                        <div className="text-xl font-bold text-white">{(data.efficiency_index.quality * 100).toFixed(0)}%</div>
-                      </div>
-                    </div>
-                    <p className="mt-6 text-sm text-slate-400 leading-relaxed italic">
-                      Measuring the balance between development speed (velocity) and code value (feature/refactor density).
-                    </p>
-                  </div>
-                )}
                 {/* Milestones Sidebar */}
                 <div className="glass-card p-8 hover-glow">
                   <h2 className="text-2xl font-bold mb-8 flex items-center gap-4">
@@ -442,6 +496,53 @@ function App() {
     </div>
   );
 }
+
+const LoadingPanel = ({ currentStep, completedSteps, steps }) => {
+  return (
+    <div className="flex flex-col items-center justify-center py-4 md:py-8 animate-in fade-in zoom-in duration-500 max-w-2xl mx-auto w-full">
+      <div className="w-full space-y-8 glass p-10 rounded-[40px] border border-white/10 shadow-3xl">
+
+        <div className="space-y-6">
+          {steps.map((step, index) => {
+            const isCompleted = completedSteps.includes(step);
+            const isCurrent = currentStep === step;
+            
+            return (
+              <div key={index} className={`flex items-center gap-6 transition-all duration-500 ${isCompleted || isCurrent ? 'opacity-100' : 'opacity-30'}`}>
+                <div className={`relative flex items-center justify-center`}>
+                  {isCompleted ? (
+                    <div className="bg-emerald-500/20 p-1.5 rounded-full border border-emerald-500/30">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    </div>
+                  ) : isCurrent ? (
+                    <div className="bg-blue-500/20 p-1.5 rounded-full border border-blue-500/30">
+                      <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                    </div>
+                  ) : (
+                    <div className="p-1.5 opacity-50">
+                      <Circle className="w-5 h-5 text-slate-500" />
+                    </div>
+                  )}
+                  {index < steps.length - 1 && (
+                    <div className={`absolute top-10 w-[2px] h-6 ${isCompleted ? 'bg-emerald-500/30' : 'bg-white/5'}`}></div>
+                  )}
+                </div>
+                <div className="flex flex-col">
+                  <span className={`text-lg font-bold tracking-tight transition-colors duration-500 ${isCurrent ? 'text-blue-400' : isCompleted ? 'text-emerald-400' : 'text-slate-400'}`}>
+                    {step}
+                  </span>
+                  {isCurrent && (
+                    <span className="text-[11px] font-black text-blue-500/60 uppercase tracking-[0.2em] mt-1">In Progress</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 function StatCard({ icon, title, value, color }) {
   const colorMap = {

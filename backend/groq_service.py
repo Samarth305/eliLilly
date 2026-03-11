@@ -54,6 +54,38 @@ class GroqService:
             print("Falling back to Ollama...")
             return await self.generate_story_with_ollama(structured_signals)
 
+    async def generate_overview(self, repo_name: str, readme_content: str) -> str:
+        """Generate a concise, high-level overview of the repository based on its README."""
+        if not readme_content or len(readme_content) < 50:
+            return "No comprehensive README found to generate deep repository overview."
+
+        # Limit README content to avoid token overflow
+        truncated_readme = readme_content[:4000]
+        
+        prompt = f"""
+        Analyze the following README content for the repository: {repo_name}
+        Provide a concise, 2-3 sentence high-level overview of what this project does, its core value proposition, and primary tech stack.
+        Return ONLY the plain text overview. No markdown formatting.
+        
+        README Content:
+        {truncated_readme}
+        """
+        
+        try:
+            response = await self.client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "You are a technical documentarian. Provide a concise repository overview."},
+                    {"role": "user", "content": prompt}
+                ],
+                model=self.model,
+                temperature=0.3,
+                max_tokens=150
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            print(f"Error generating overview: {e}")
+            return "Unable to generate AI overview at this time."
+
     async def generate_story_with_ollama(self, structured_signals: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Fallback to local Ollama API (gemma3:4b)."""
         prompt = self._build_ollama_prompt(structured_signals)

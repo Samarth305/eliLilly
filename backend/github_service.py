@@ -218,5 +218,17 @@ class GitHubService:
         url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/pulls"
         return await self._fetch_all_pages(url, params={"state": "all"})
     
+    async def get_readme(self, owner: str, repo: str) -> str:
+        """Fetch the README content of a repository."""
+        url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/readme"
+        try:
+            response = await self.client.get(url, headers={"Accept": "application/vnd.github.v3.raw"})
+            if response.status_code == 200:
+                return response.text
+            return ""
+        except Exception as e:
+            print(f"Error fetching README: {e}")
+            return ""
+    
     async def close(self):
         await self.client.aclose()
