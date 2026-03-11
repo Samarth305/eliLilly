@@ -17,3 +17,4 @@ dist-ssr/
 
 # Backend specific
 test_response.json
+debug_*.py

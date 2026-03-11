@@ -140,7 +140,7 @@ Return EXACTLY this JSON format:
 {{
   "story_cards": [
     {{
-      "title": "Evolution Summary",
+      "title": "Creative, thematic chapter title (e.g., The Genesis Commit)",
       "period": "Overall Analysis",
       "description": "Write a clear technical narrative (4-8 sentences) explaining the project's evolution, major growth, and architecture shifts."
     }}
@@ -174,13 +174,14 @@ Return EXACTLY this JSON format:
         - collaboration patterns
         - module evolution
         
-        Write a concise narrative for each phase or major event.
+        Write a concise, engaging narrative for each phase or major event.
+        CRITICAL: Make the "title" highly creative, thematic, and specific to the actual technical work done (e.g., "The Database Awakening", "Birth of the Automation Pipeline", "The Great Refactoring". Do NOT use generic names like "Active Development Phase 1").
         
         Return JSON in this exact format:
         {{
           "story_cards": [
             {{
-              "title": "Phase or Event title",
+              "title": "Creative, thematic chapter title",
               "period": "start → end or specific date",
               "description": "clear explanation of what happened in the repository during this time"
             }}
