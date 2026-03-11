@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   GitCommit, Users, GitBranch, Tag, ArrowRight, Loader2,
   Activity, BookOpen, Clock, AlertTriangle, Layers, GitPullRequest, GitFork, Shield, Award, Zap,
-  CheckCircle2, Circle
+  CheckCircle2, Circle , Star
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend, Cell
@@ -64,14 +64,14 @@ function App() {
     eventSource.onmessage = (event) => {
       const message = event.data;
       if (message === "DONE") {
-        setCompletedSteps(prev => [...new Set([...prev, steps[steps.length - 1]])]);
+        setCompletedSteps(steps);
+        setLoadingStep("Analysis complete!");
         eventSource.close();
       } else {
         setLoadingStep(message);
-        // Find the index of the current message in our steps
-        const currentIndex = steps.indexOf(message);
-        if (currentIndex > 0) {
-          // Mark all previous steps as completed
+        const currentIndex = steps.findIndex(s => message.includes(s) || s.includes(message));
+        if (currentIndex !== -1) {
+          // If we matched a primary step, mark all previous as completed
           setCompletedSteps(steps.slice(0, currentIndex));
         }
       }
@@ -183,7 +183,7 @@ function App() {
               <StatCard icon={<GitPullRequest className="text-violet-400" />} title="PRs" value={data.repository_stats.pull_requests_count} color="violet" />
               <StatCard icon={<GitFork className="text-orange-400" />} title="Forks" value={data.repository_stats.forks_count} color="orange" />
               <StatCard icon={<Tag className="text-fuchsia-400" />} title="Releases" value={data.repository_stats.releases_count} color="fuchsia" />
-              <StatCard icon={<Activity className="text-cyan-400" />} title="Stars" value={data.repository_stats.stars} color="cyan" />
+              <StatCard icon={<Star className="text-cyan-400" />} title="Stars" value={data.repository_stats.stars} color="cyan" />
             </div>
 
             {/* AI Repository Overview (New Section) */}
@@ -323,7 +323,7 @@ function App() {
                       <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20"><GitCommit className="text-emerald-400 w-6 h-6" /></div>
                       Commit Category Breakdown
                     </h2>
-                    <div className="h-[400px]">
+                    <div className="h-[400px] w-full" style={{ minWidth: 0 }}>
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={data.commit_distribution}>
                           <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -357,7 +357,7 @@ function App() {
                           <div className="p-3 bg-purple-500/10 rounded-2xl border border-purple-500/20"><Layers className="text-purple-400 w-6 h-6" /></div>
                           Hot Modules
                         </h2>
-                        <div className="h-[350px]">
+                        <div className="h-[350px] w-full" style={{ minWidth: 0 }}>
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={data.hot_modules.slice(0, 10)} layout="vertical">
                               <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" horizontal={false} />
@@ -386,7 +386,7 @@ function App() {
                           <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20"><Activity className="text-emerald-400 w-6 h-6" /></div>
                           Commit Frequency
                         </h2>
-                        <div className="h-[350px]">
+                        <div className="h-[350px] w-full" style={{ minWidth: 0 }}>
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={Object.entries(data.commit_frequencies?.commits_per_month || {})
                               .map(([month, count]) => ({ month, count }))
@@ -546,20 +546,22 @@ const LoadingPanel = ({ currentStep, completedSteps, steps }) => {
 
 function StatCard({ icon, title, value, color }) {
   const colorMap = {
-    emerald: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-emerald-500/5',
-    blue: 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-blue-500/5',
-    rose: 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-rose-500/5',
-    amber: 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-amber-500/5',
-    violet: 'bg-violet-500/10 text-violet-400 border-violet-500/20 shadow-violet-500/5',
-    orange: 'bg-orange-500/10 text-orange-400 border-orange-500/20 shadow-orange-500/5',
-    fuchsia: 'bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20 shadow-fuchsia-500/5',
-    cyan: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 shadow-cyan-500/5',
-    indigo: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 shadow-indigo-500/5',
+    emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20', shadow: 'shadow-emerald-500/5', bar: 'bg-emerald-400' },
+    blue: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20', shadow: 'shadow-blue-500/5', bar: 'bg-blue-400' },
+    rose: { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/20', shadow: 'shadow-rose-500/5', bar: 'bg-rose-400' },
+    amber: { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/20', shadow: 'shadow-amber-500/5', bar: 'bg-amber-400' },
+    violet: { bg: 'bg-violet-500/10', text: 'text-violet-400', border: 'border-violet-500/20', shadow: 'shadow-violet-500/5', bar: 'bg-violet-400' },
+    orange: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/20', shadow: 'shadow-orange-500/5', bar: 'bg-orange-400' },
+    fuchsia: { bg: 'bg-fuchsia-500/10', text: 'text-fuchsia-400', border: 'border-fuchsia-500/20', shadow: 'shadow-fuchsia-500/5', bar: 'bg-fuchsia-400' },
+    cyan: { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/20', shadow: 'shadow-cyan-500/5', bar: 'bg-cyan-400' },
+    indigo: { bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/20', shadow: 'shadow-indigo-500/5', bar: 'bg-indigo-400' },
   };
+
+  const theme = colorMap[color] || { bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20', bar: 'bg-slate-400' };
 
   return (
     <div className="glass-card p-5 hover-glow hover:scale-105 group relative overflow-hidden flex flex-col justify-between h-36">
-      <div className={`p-2.5 rounded-xl w-fit ${colorMap[color] || 'bg-slate-500/10'}`}>
+      <div className={`p-2.5 rounded-xl w-fit ${theme.bg} ${theme.text} border ${theme.border}`}>
         {icon}
       </div>
       <div className="mt-auto">
@@ -567,7 +569,7 @@ function StatCard({ icon, title, value, color }) {
         <div className="text-2xl font-black text-white tracking-tighter leading-none">{value}</div>
       </div>
       {/* Subtle indicator line */}
-      <div className={`absolute bottom-0 left-0 h-[3px] w-0 group-hover:w-full transition-all duration-500 ease-in-out ${colorMap[color].split(' ')[1].replace('text-', 'bg-')}`}></div>
+      <div className={`absolute bottom-0 left-0 h-[3px] w-0 group-hover:w-full transition-all duration-500 ease-in-out ${theme.bar}`}></div>
     </div>
   );
 }

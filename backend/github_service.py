@@ -19,7 +19,7 @@ class GitHubService:
         
         # Connection pooling and rate limit synchronization
         limits = httpx.Limits(max_connections=50)
-        self.client = httpx.AsyncClient(headers=self.headers, timeout=60.0, limits=limits)
+        self.client = httpx.AsyncClient(headers=self.headers, timeout=60.0, limits=limits, follow_redirects=True)
         self._rate_limit_reset = 0
         self._rate_limit_lock = asyncio.Lock()
         self.graphql_url = "https://api.github.com/graphql"
@@ -44,10 +44,10 @@ class GitHubService:
             raise Exception(f"GraphQL Errors: {data['errors']}")
         return data.get("data", {})
 
-    async def fetch_repository_data_graphql(self, owner: str, repo: str, commit_limit: int = 100) -> Dict[str, Any]:
-        """Fetch repo metadata, PRs, releases, and initial commit history in one go."""
+    async def fetch_repository_data_graphql(self, owner: str, repo: str) -> Dict[str, Any]:
+        """Fetch repo metadata, PRs, and releases."""
         query = """
-        query($owner: String!, $repo: String!, $limit: Int!) {
+        query($owner: String!, $repo: String!) {
           repository(owner: $owner, name: $repo) {
             name
             fullName: nameWithOwner
@@ -62,30 +62,6 @@ class GitHubService:
             }
             defaultBranchRef {
               name
-              target {
-                ... on Commit {
-                  history(first: $limit) {
-                    totalCount
-                    pageInfo {
-                      hasNextPage
-                      endCursor
-                    }
-                    nodes {
-                      oid
-                      message
-                      committedDate
-                      additions
-                      deletions
-                      changedFiles
-                      author {
-                        name
-                        user { login }
-                      }
-                      parents { totalCount }
-                    }
-                  }
-                }
-              }
             }
             pullRequests(first: 100, states: [OPEN, CLOSED, MERGED]) {
               totalCount
@@ -108,8 +84,77 @@ class GitHubService:
           }
         }
         """
-        variables = {"owner": owner, "repo": repo, "limit": commit_limit}
+        variables = {"owner": owner, "repo": repo}
         return await self._execute_graphql(query, variables)
+
+    async def fetch_commits_paginated_graphql(self, owner: str, repo: str, limit: int = 2000) -> List[Dict[str, Any]]:
+        """Paginate through commit history via GraphQL."""
+        all_commits = []
+        cursor = None
+        has_next_page = True
+        
+        query = """
+        query($owner: String!, $repo: String!, $limit: Int!, $cursor: String) {
+          repository(owner: $owner, name: $repo) {
+            defaultBranchRef {
+              target {
+                ... on Commit {
+                  history(first: $limit, after: $cursor) {
+                    totalCount
+                    pageInfo {
+                      hasNextPage
+                      endCursor
+                    }
+                    nodes {
+                      oid
+                      message
+                      committedDate
+                      additions
+                      deletions
+                      changedFiles
+                      author {
+                        name
+                        user { login }
+                      }
+                      parents { totalCount }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+        
+        # We fetch in chunks of 100 to be safe and responsive
+        chunk_size = 100
+        while has_next_page and len(all_commits) < limit:
+            variables = {
+                "owner": owner, 
+                "repo": repo, 
+                "limit": chunk_size, 
+                "cursor": cursor
+            }
+            data = await self._execute_graphql(query, variables)
+            
+            repo_node = data.get("repository")
+            if not repo_node:
+                break
+                
+            branch_ref = repo_node.get("defaultBranchRef") or {}
+            history = branch_ref.get("target", {}).get("history", {})
+            
+            nodes = history.get("nodes", [])
+            all_commits.extend(nodes)
+            
+            page_info = history.get("pageInfo", {})
+            has_next_page = page_info.get("hasNextPage", False)
+            cursor = page_info.get("endCursor")
+            
+            if not cursor:
+                break
+                
+        return all_commits[:limit]
 
     async def _wait_if_rate_limited(self):
         """Shared guard to prevent multiple parallel tasks from hitting 403 or sleeping redundantly."""

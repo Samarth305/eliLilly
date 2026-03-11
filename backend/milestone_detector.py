@@ -1,3 +1,7 @@
+import re
+import statistics
+from collections import defaultdict
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from utils import parse_date
 
@@ -7,7 +11,6 @@ class MilestoneDetector:
         if not commits:
             return {}
         
-        # Commits should be sorted chronologically to find the true first
         valid_commits = [c for c in commits if c.get("date")]
         if not valid_commits:
             return {}
@@ -16,129 +19,264 @@ class MilestoneDetector:
         first = valid_commits[0]
         
         return {
+            "type": "project_creation",
             "date": first["date"],
             "event_description": f"Repository created by {first.get('author')}."
         }
-        
+
     @staticmethod
-    def detect_component_introductions(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        import re
+    def detect_architecture_shifts(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if len(commits) < 10:
+            return []
+            
         milestones = []
-        seen_components = set()
+        sizes = [c.get("additions", 0) + c.get("deletions", 0) for c in commits]
         
-        # Parse commits chronologically
-        valid_commits = sorted([c for c in commits if c.get("date")], key=lambda x: parse_date(x["date"]))
+        mean_size = statistics.mean(sizes)
+        std_size = statistics.stdev(sizes)
+        threshold = mean_size + 2.5 * std_size
         
-        for commit in valid_commits:
-            files = commit.get("files_changed", [])
-            for f in files:
-                if "testing" not in seen_components and (f.startswith("tests/") or re.search(r'(^|/)test_|\.test\.|\.spec\.', f)):
-                    seen_components.add("testing")
-                    milestones.append({
-                        "date": commit["date"],
-                        "type": "testing_framework_introduction",
-                        "event_description": "Testing framework or comprehensive test suite introduced."
-                    })
-                
-                # Covers Docker, Github Actions, Jenkins, Makefiles
-                if "infra" not in seen_components and (f in ["Dockerfile", "docker-compose.yml", "Jenkinsfile", "Makefile"] or f.startswith(".github/workflows/")):
-                    seen_components.add("infra")
-                    milestones.append({
-                        "date": commit["date"],
-                        "type": "infrastructure_changes",
-                        "event_description": "Project infrastructure (CI/CD/Docker Automation) introduced."
-                    })
+        for commit in commits:
+            size = commit.get("additions", 0) + commit.get("deletions", 0)
+            files_changed = commit.get("files_changed", [])
+            
+            # Count unique top-level directories
+            unique_dirs = set()
+            for f in files_changed:
+                if "/" in f:
+                    unique_dirs.add(f.split("/")[0])
+            
+            if size > threshold and len(files_changed) >= 10 and len(unique_dirs) >= 3:
+                milestones.append({
+                    "type": "architecture_shift",
+                    "date": commit["date"],
+                    "event_description": "Large architectural change affecting multiple modules."
+                })
         return milestones
 
     @staticmethod
     def detect_module_introductions(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        from collections import defaultdict
         milestones = []
-        seen_dirs = set()
-        dir_file_counts = defaultdict(int)
+        module_activity = defaultdict(int)
+        module_first_seen = {}
+        
+        ignore_dirs = {"docs", "tests", ".github", "node_modules", "dist", "build", "assets", "public"}
+        
+        valid_commits = sorted([c for c in commits if c.get("date")], key=lambda x: parse_date(x["date"]))
+        
+        active_modules = set()
+        
+        for commit in valid_commits:
+            files = commit.get("files", [])
+            for f in files:
+                status = f.get("status")
+                filename = f.get("filename", "")
+                
+                if "/" in filename:
+                    module = filename.split("/")[0]
+                    if module in ignore_dirs:
+                        continue
+                        
+                    if module not in module_first_seen:
+                        module_first_seen[module] = commit["date"]
+                    
+                    if status == "added":
+                        module_activity[module] += 1
+                        
+                        if module not in active_modules and module_activity[module] >= 5:
+                            active_modules.add(module)
+                            milestones.append({
+                                "type": "module_introduction",
+                                "module": module,
+                                "date": commit["date"],
+                                "event_description": f"New major module established: {module}."
+                            })
+        return milestones
+
+    @staticmethod
+    def detect_testing_adoption(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        milestones = []
+        # Group testing commits by month
+        monthly_testing = defaultdict(int)
         
         valid_commits = sorted([c for c in commits if c.get("date")], key=lambda x: parse_date(x["date"]))
         
         for commit in valid_commits:
-            files = commit.get("files", [])
-            
-            for f in files:
-                status = f.get("status")
-                if not status:
-                    continue
-                filename = f.get("filename", "")
-                if status == "added" and "/" in filename:
-                    top_dir = filename.split("/")[0]
-                    if top_dir not in seen_dirs:
-                        dir_file_counts[top_dir] += 1
-                        if dir_file_counts[top_dir] >= 5:
-                            seen_dirs.add(top_dir)
-                            milestones.append({
-                                "type": "module_introduction",
-                                "module": top_dir,
-                                "date": commit["date"],
-                                "event_description": f"New major module established: {top_dir} (reached 5 cumulative files)."
-                            })
+            if commit.get("type") == "testing":
+                month = commit["date"][:7]
+                monthly_testing[month] += 1
+        
+        sorted_months = sorted(monthly_testing.keys())
+        for i, month in enumerate(sorted_months):
+            if monthly_testing[month] >= 3:
+                # Check if testing was inactive before
+                prev_month = (datetime.strptime(month, "%Y-%m") - timedelta(days=28)).strftime("%Y-%m")
+                if monthly_testing.get(prev_month, 0) == 0:
+                    # Find first testing commit this month
+                    first_test_commit = next(c for c in valid_commits if c["date"][:7] == month and c.get("type") == "testing")
+                    milestones.append({
+                        "type": "testing_adoption",
+                        "date": first_test_commit["date"],
+                        "event_description": "Automated testing practices introduced."
+                    })
+                    break # Only one testing adoption milestone
         return milestones
 
     @staticmethod
     def detect_contributor_growth(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         milestones = []
-        monthly_contributors = {}
+        monthly_authors = defaultdict(set)
         
         for c in commits:
-            date_str = c.get("date")
-            author = c.get("author")
-            if date_str and author:
-                month_str = date_str[:7]
-                if month_str not in monthly_contributors:
-                    monthly_contributors[month_str] = set()
-                monthly_contributors[month_str].add(author)
+            if c.get("date") and c.get("author"):
+                month = c["date"][:7]
+                monthly_authors[month].add(c["author"])
                 
-        sorted_months = sorted(monthly_contributors.keys())
+        sorted_months = sorted(monthly_authors.keys())
         for i in range(1, len(sorted_months)):
             curr_month = sorted_months[i]
-            curr_count = len(monthly_contributors[curr_month])
+            curr_count = len(monthly_authors[curr_month])
             
-            # Comparison using a moving average of the previous 3 months
-            lookback_range = sorted_months[max(0, i-3):i]
-            if not lookback_range:
+            lookback = sorted_months[max(0, i-3):i]
+            if not lookback:
                 continue
                 
-            avg_prev_count = sum(len(monthly_contributors[m]) for m in lookback_range) / len(lookback_range)
+            avg_prev = sum(len(monthly_authors[m]) for m in lookback) / len(lookback)
             
-            # Fire milestone if current count is at least double the moving average
-            if avg_prev_count > 0 and curr_count >= avg_prev_count * 2 and curr_count > 2:
+            if curr_count >= 2 * avg_prev and curr_count >= 4:
                 milestones.append({
                     "type": "contributor_growth",
                     "date": curr_month + "-01T00:00:00Z",
-                    "event_description": f"Active contributors surged to {curr_count} (double the 3-month average of {avg_prev_count:.1f})."
+                    "event_description": "Significant growth in project contributors."
                 })
         return milestones
 
     @staticmethod
-    def generate_milestones(commits: List[Dict[str, Any]], releases: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def detect_development_bursts(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         milestones = []
+        weekly_commits = defaultdict(int)
+        
+        for c in commits:
+            if c.get("date"):
+                dt = parse_date(c["date"])
+                # Get start of week (Monday)
+                week_start = (dt - timedelta(days=dt.weekday())).strftime("%Y-%m-%d")
+                weekly_commits[week_start] += 1
+                
+        if not weekly_commits:
+            return []
+            
+        avg_weekly = statistics.mean(weekly_commits.values())
+        
+        for week, count in sorted(weekly_commits.items()):
+            if count >= 2 * avg_weekly and count >= 10: # Minimum 10 commits for a "burst"
+                milestones.append({
+                    "type": "development_burst",
+                    "date": week + "T00:00:00Z",
+                    "event_description": "Major surge in development activity."
+                })
+        return milestones
+
+    @staticmethod
+    def detect_dependency_migration(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        milestones = []
+        weekly_deps = defaultdict(int)
+        
+        for c in commits:
+            if c.get("date") and c.get("type") == "dependency":
+                dt = parse_date(c["date"])
+                week_start = (dt - timedelta(days=dt.weekday())).strftime("%Y-%m-%d")
+                weekly_deps[week_start] += 1
+                
+        for week, count in sorted(weekly_deps.items()):
+            if count >= 3:
+                milestones.append({
+                    "type": "dependency_migration",
+                    "date": week + "T00:00:00Z",
+                    "event_description": "Significant dependency or framework upgrade."
+                })
+        return milestones
+
+    @staticmethod
+    def detect_change_points(commits: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        milestones = []
+        weekly_commits = defaultdict(int)
+        
+        # Group by Monday start of week
+        for c in commits:
+            if c.get("date"):
+                dt = parse_date(c["date"])
+                week_start = (dt - timedelta(days=dt.weekday())).strftime("%Y-%m-%d")
+                weekly_commits[week_start] += 1
+                
+        sorted_weeks = sorted(weekly_commits.keys())
+        if len(sorted_weeks) < 5: # Need at least 4 weeks for baseline + 1 for current
+            return []
+            
+        for i in range(4, len(sorted_weeks)):
+            curr_week = sorted_weeks[i]
+            curr_count = weekly_commits[curr_week]
+            
+            # Baseline: Average of previous 4 weeks
+            prev_weeks = sorted_weeks[i-4:i]
+            prev_avg = statistics.mean(weekly_commits[w] for w in prev_weeks)
+            
+            if prev_avg > 0:
+                # 1. Phase Shift (Significant increase)
+                if curr_count >= prev_avg * 2 and curr_count >= 10:
+                    milestones.append({
+                        "type": "development_phase_shift",
+                        "date": curr_week + "T00:00:00Z",
+                        "event_description": "Development activity significantly increased, indicating a new project phase."
+                    })
+                # 2. Slowdown (Significant drop)
+                elif curr_count <= prev_avg * 0.5 and prev_avg >= 5: # Baseline needs to be non-trivial for "slowdown"
+                    milestones.append({
+                        "type": "development_slowdown",
+                        "date": curr_week + "T00:00:00Z",
+                        "event_description": "Development activity slowed significantly."
+                    })
+        return milestones
+
+    @staticmethod
+    def generate_milestones(commits: List[Dict[str, Any]], releases: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        all_candidates = []
         
         creation = MilestoneDetector.detect_repository_creation(commits)
         if creation:
-            creation["type"] = "project_creation"
-            milestones.append(creation)
+            all_candidates.append(creation)
             
-        milestones.extend(MilestoneDetector.detect_component_introductions(commits))
-        milestones.extend(MilestoneDetector.detect_module_introductions(commits))
-        milestones.extend(MilestoneDetector.detect_contributor_growth(commits))
+        all_candidates.extend(MilestoneDetector.detect_architecture_shifts(commits))
+        all_candidates.extend(MilestoneDetector.detect_module_introductions(commits))
+        all_candidates.extend(MilestoneDetector.detect_testing_adoption(commits))
+        all_candidates.extend(MilestoneDetector.detect_contributor_growth(commits))
+        all_candidates.extend(MilestoneDetector.detect_development_bursts(commits))
+        all_candidates.extend(MilestoneDetector.detect_dependency_migration(commits))
+        all_candidates.extend(MilestoneDetector.detect_change_points(commits))
         
-        # Add releases as milestones
         for release in releases:
             date = release.get("published_at") or release.get("created_at")
             if date:
-                milestones.append({
+                all_candidates.append({
                     "date": date,
                     "type": "release",
                     "event_description": f"Release: {release.get('name') or release.get('tag_name')}"
                 })
                 
-        # Sort milestones by date
-        milestones.sort(key=lambda m: parse_date(m["date"]))
-        return milestones
+        # Weekly De-duplication and Sorting
+        all_candidates.sort(key=lambda m: parse_date(m["date"]))
+        
+        final_milestones = []
+        seen_weeks = defaultdict(set)
+        
+        for m in all_candidates:
+            dt = parse_date(m["date"])
+            week_id = f"{dt.year}-W{dt.isocalendar()[1]}"
+            m_type = m["type"]
+            
+            # Allow multiple types per week, but deduplicate identical types
+            if m_type not in seen_weeks[week_id]:
+                final_milestones.append(m)
+                seen_weeks[week_id].add(m_type)
+                
+        return sorted(final_milestones, key=lambda m: parse_date(m["date"]))

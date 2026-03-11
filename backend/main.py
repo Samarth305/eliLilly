@@ -103,7 +103,7 @@ async def analyze_repository(request: AnalyzeRequest):
     try:
         await update_progress("Fetching repository metadata...")
         # 1. Fetch bulk data via GraphQL (Massive efficiency gain)
-        gql_data = await github_service.fetch_repository_data_graphql(owner, repo, commit_limit=100)
+        gql_data = await github_service.fetch_repository_data_graphql(owner, repo)
         repo_data = gql_data.get("repository")
         if not repo_data:
             raise HTTPException(status_code=404, detail="Repository not found")
@@ -115,37 +115,59 @@ async def analyze_repository(request: AnalyzeRequest):
             "forks_count": repo_data.get("forkCount", 0),
         }
         
-        # Map GraphQL objects for compatibility
-        branch_ref = repo_data.get("defaultBranchRef") or {}
-        history = branch_ref.get("target", {}).get("history", {})
-        raw_commits = history.get("nodes", [])
-        total_commits_count = history.get("totalCount", 0)
-        
         pull_requests = repo_data.get("pullRequests", {}).get("nodes", [])
         releases = repo_data.get("releases", {}).get("nodes", [])
         
         await update_progress("Downloading commit history...")
+        # 2. Paginated GraphQL for large history
+        raw_commits = await github_service.fetch_commits_paginated_graphql(owner, repo, limit=2000)
+        total_commits_count = len(raw_commits)
         
-        # 2. Parallel REST Enrichment (Fetch missing file lists)
+        await update_progress("Analyzing commit patterns...")
+        
+        # 3. Smart Hybrid Enrichment
         detailed_commits = []
         sem = asyncio.Semaphore(50)
         
-        async def enrich_commit(gql_commit: dict):
+        # Calculate size threshold for outlier detection in history
+        import statistics
+        sizes = [c.get("additions", 0) + c.get("deletions", 0) for c in raw_commits]
+        threshold = statistics.mean(sizes) + 2.5 * statistics.stdev(sizes) if len(sizes) > 1 else 1000
+        
+        async def enrich_commit(gql_commit: dict, force: bool = False):
             sha = gql_commit.get("oid")
-            async with sem:
-                detail = await github_service.get_commit_details(owner, repo, sha)
-                if detail:
-                    return CommitAnalyzer.extract_summary(detail)
-                return None
-
-        tasks = [asyncio.create_task(enrich_commit(c)) for c in raw_commits if c.get("oid")]
+            size = gql_commit.get("additions", 0) + gql_commit.get("deletions", 0)
+            
+            # Enrich if: it's in the recent 200 OR it's a huge outlier
+            if force or size > threshold or size > 1000:
+                async with sem:
+                    detail = await github_service.get_commit_details(owner, repo, sha)
+                    if detail:
+                        return CommitAnalyzer.extract_summary(detail)
+            
+            # Fallback for old/small commits: Use GraphQL metadata (no file lists)
+            return {
+                "sha": sha,
+                "message": gql_commit.get("message", ""),
+                "date": gql_commit.get("committedDate"),
+                "author": gql_commit.get("author", {}).get("user", {}).get("login") or gql_commit.get("author", {}).get("name", "Unknown"),
+                "additions": gql_commit.get("additions", 0),
+                "deletions": gql_commit.get("deletions", 0),
+                "files_changed": [], # Empty for non-enriched
+                "is_merge": gql_commit.get("parents", {}).get("totalCount", 0) > 1
+            }
+        
+        # Execute enrichment tasks
+        tasks = []
+        for i, c in enumerate(raw_commits):
+            is_recent = i < 200 # Deeply analyze the 200 most recent
+            tasks.append(asyncio.create_task(enrich_commit(c, force=is_recent)))
+            
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         for res in results:
             if res and not isinstance(res, Exception):
                 detailed_commits.append(res)
-
-        await update_progress("Analyzing commit patterns...")
 
         # 1.5 Fetch README and generate overview
         readme_content = await github_service.get_readme(owner, repo)
