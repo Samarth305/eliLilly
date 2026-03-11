@@ -1,69 +1,84 @@
 # Git History Storyteller
 
-Git History Storyteller is an AI-powered repository analysis dashboard that transforms complex Git history into a compelling, structured narrative. It leverages statistical analysis and Large Language Models (Gemini) to explain how a project evolved, identify key contributors, and visualize team dynamics.
+An AI-powered repository analysis dashboard that transforms complex Git history into a structured narrative.
 
-## 🚀 Recent Features (v2.0)
+## 📖 Project Overview
+*   **Purpose:** To help developers and managers quickly understand the lifecycle, health, and evolution of any given software project.
+*   **Mechanism:** Extracts raw signals from Git history, processes them through a statistical engine, and uses AI to write a creative, human-readable timeline mapping out the repository's journey.
 
-Since the latest push, the following core features and enhancements have been implemented:
+## ⚙️ Key Functionalities
+*   **Metadata Extraction:** Recursively fetches commits, contributors, pull requests, and structural data using GitHub's GraphQL and REST APIs.
+*   **Heuristic Analysis:** Analyzes commit messages, diff sizes, and file extensions to categorize commits (e.g., feature, bugfix, refactor, dependency).
+*   **Evolutionary Storytelling:** Leverages Groq (Llama 3 70b) or local Ollama models to generate creative, thematic chapter summaries of development phases.
+*   **Health Metrics Calculation:** Computes Bus Factor (team resilience), Maturity Score, Codebase Efficiency, and top Contributors' Impact automatically.
+*   **"Hot Module" Detection:** Tracks the specific folders and files that are most frequently mutated over time.
 
-### 1. Contributor Insights Engine
-- **Core Maintainer Detection**: Automatically identifies developers responsible for >= 20% of the project's commit volume.
-- **High Impact Statistics**: Calculates a weighted impact score for every contributor based on files changed, additions, and deletions per commit.
-- **Code Ownership Tracking**: Intelligent module attribution that identifies which contributors "own" specific parts of the codebase.
-- **Collaboration Intensity**: Tracks the unique number of active contributors month-by-month to measure team growth and collaboration spikes.
+## 🔄 Data Flow Architecture
+1. **User Input:** User submits a valid GitHub repository URL via the React frontend.
+2. **Data Orchestration (Backend):** FastAPI receives the request and triggers the `GitHubService`.
+3. **Signal Gathering:** Backend pulls down hundreds of recent commits and repository metrics.
+4. **Statistical Processing:** The `StatisticsEngine` organizes commits chronologically, groups them into defined "Development Phases," identifies "Architecture Shifts," and calculates Risk/Maturity scores.
+5. **AI Generation:** The highly compressed `structured_signals` object is injected into a specialized prompt and sent to Groq. 
+6. **Response Synthesis:** Groq streams back a JSON array of creative "Story Cards" representing the project's timeline.
+7. **Visualization:** The completed dataset is sent back to the frontend, rendering the interactive Glassmorphism UI, Recharts graphics, and Markdown narratives.
 
-### 2. Scaled Historical Analysis
-- **Increased Depth**: The analysis limit has been doubled to **200 detailed commits**, providing a much deeper historical perspective.
-- **Optimized Fetching**: Backend now reads up to **500 raw commits** to extract the most meaningful signals.
+---
 
-### 3. Enriched Repository Metrics
-New metrics have been added to the main dashboard header for a 360-degree project overview:
-- **Pull Requests**: Total count of all open and closed PRs.
-- **Forks**: Total number of repository forks.
-- **Stars**: Real-time GitHub star count.
+## ✨ Recent Enhancements (v2.0)
 
-### 4. Advanced Visualizations
-- **Contribution Patterns**: A new **Line Chart** (powered by Recharts) visualizes the repo's activity pulse over time.
-- **Hot Modules**: Bar charts identifying the most frequently modified directories.
-- **Interactive Timeline**: A vertical timeline mapping releases and major architecture shifts.
-
-### 5. AI Story Cards
-- The long-form AI narrative has been refactored into **Story Cards**.
-- Each card represents a logical development phase (e.g., "Initial Setup", "Feature Burst", "Stabilization").
-- Specialized logic for **Team Dynamics Narratives**, where the AI explains how specific contributors shaped the project.
+*   **Primary LLM Migration:** Upgraded from Gemini to Groq (`llama-3.3-70b-versatile`) as the primary AI engine, with Ollama (`gemma3:4b`) configured as a local fallback.
+*   **Creative Story Chapters:** AI prompts strictly enforce creative, thematic chapter titles instead of generic development phases.
+*   **Deep Narrative Context:** Narrative generation now analyzes Milestones, Architecture Changes, and Contributor Insights in addition to commit phases.
+*   **Optimized Data Fetching:** Implemented GraphQL for bulk fetching of GitHub repository data, drastically improving analysis speed over traditional REST.
+*   **Premium UI & Aesthetics:**
+    *   Dark, animated "mesh gradient" backgrounds.
+    *   Refined **Glassmorphism** for data cards (`backdrop-filter: blur(16px)`).
+    *   Hover glow micro-interactions across timelines, cards, and charts.
+    *   Improved typography scale, tracking, and font selections (`Outfit`, `Inter`, `Fira Code`).
+*   **Enhanced Visualizations:** Replaced the legacy "Development Velocity" line chart with an interactive "Commit Frequency" Bar Chart mapping monthly activity.
+*   **Robust Data Models:** Fixed critical API bugs where `bus_factor` and `maturity_score` were being stripped from the Pydantic API response.
+*   **Full Dockerization:** 
+    *   Project is fully containerized using `docker-compose`.
+    *   Frontend served via NGINX.
+    *   Backend backend dependencies (like `groq`) correctly mapped in `requirements.txt`.
+*   **Clean Version Control:** Sanitized `.gitignore` to automatically exclude all local `debug_*.py` development scripts.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React, Vite, TailwindCSS (Typography plugin), Lucide Icons, Recharts.
-- **Backend**: Python FastAPI, Uvicorn, httpx, Pydantic.
-- **AI**: Google Gemini API (gemini-2.0-flash).
-- **Data Source**: GitHub REST API.
+*   **Frontend:** React, Vite, TailwindCSS (Typography plugin), Lucide Icons, Recharts.
+*   **Backend:** Python FastAPI, Uvicorn, httpx, Pydantic, Groq API SDK.
+*   **Data Source:** GitHub GraphQL & REST API.
 
 ---
 
-## 🚦 Getting Started
+## 🚦 Getting Started (Local Development)
 
 ### Backend Setup
-1. Navigate to `/backend`.
-2. Create a `.env` file with:
+1. `cd backend`
+2. Create `.env`:
    ```env
    GITHUB_TOKEN=your_github_token
-   GEMINI_API_KEY=your_gemini_api_key
+   GROQ_API_KEY=your_groq_api_key
    ```
-3. Install dependencies: `pip install -r requirements.txt`.
-4. Run: `python main.py`.
+3. `pip install -r requirements.txt`
+4. `python main.py`
 
 ### Frontend Setup
-1. Navigate to `/frontend`.
-2. Install dependencies: `npm install`.
-3. Run: `npm run dev`.
+1. `cd frontend`
+2. `npm install`
+3. `npm run dev`
 
 ---
 
-## 📁 Project Structure
+## 🐳 Getting Started (Docker)
 
-- `backend/`: FastAPI application, commit analysis logic, and Gemini service integration.
-- `frontend/`: React dashboard with Recharts visualization and premium UI components.
-- `.gitignore`: Configured to exclude Python venvs, node_modules, and environment files.
+Ensure your `.env` is set up inside the `backend` directory, then simply run:
+
+```bash
+docker-compose up --build -d
+```
+
+*   Frontend will be available at `http://localhost:5173`
+*   Backend API will be running on `http://localhost:8000`
