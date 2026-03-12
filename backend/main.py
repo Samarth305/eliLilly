@@ -115,8 +115,10 @@ async def analyze_repository(request: AnalyzeRequest):
             "forks_count": repo_data.get("forkCount", 0),
         }
         
-        pull_requests = repo_data.get("pullRequests", {}).get("nodes", [])
-        releases = repo_data.get("releases", {}).get("nodes", [])
+        pull_requests_count = repo_data.get("pullRequests", {}).get("totalCount", 0)
+        releases_data = repo_data.get("releases", {})
+        releases_count = releases_data.get("totalCount", 0)
+        releases_nodes = releases_data.get("nodes", [])
         
         await update_progress("Downloading commit history...")
         # 2. Paginated GraphQL for large history
@@ -214,7 +216,7 @@ async def analyze_repository(request: AnalyzeRequest):
         contributor_insights = ContributorAnalyzer.analyze(filtered_commits)
         
         # 6. Milestone Detection
-        milestones = MilestoneDetector.generate_milestones(filtered_commits, releases)
+        milestones = MilestoneDetector.generate_milestones(filtered_commits, releases_nodes)
         
         await update_progress("Detecting development phases...")
         
@@ -266,8 +268,8 @@ async def analyze_repository(request: AnalyzeRequest):
                 "total_analyzed_commits": total_commits_count,
                 "total_contributors_count": len(contributors),
                 "branches_count": len(branches),
-                "releases_count": len(releases),
-                "pull_requests_count": len(pull_requests),
+                "releases_count": releases_count,
+                "pull_requests_count": pull_requests_count,
                 "forks_count": repo_info.get("forks_count", 0),
                 "stars": repo_info.get("stargazers_count", 0),
             },
