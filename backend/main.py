@@ -15,6 +15,7 @@ from statistics_engine import StatisticsEngine
 from milestone_detector import MilestoneDetector
 from groq_service import GroqService
 from contributor_analyzer import ContributorAnalyzer
+from cache_service import CacheService
 
 load_dotenv()
 
@@ -65,6 +66,7 @@ async def analyze_stream(request_id: str = Query(...)):
 class AnalyzeRequest(BaseModel):
     repo_url: str
     request_id: str = None
+    bypass_cache: bool = False
 
 class AnalysisResponse(BaseModel):
     repository_stats: dict
@@ -99,6 +101,26 @@ async def analyze_repository(request: AnalyzeRequest):
         
     github_service = GitHubService()
     story_service = GroqService()
+    cache_service = CacheService()
+    
+    # 0. Check Cache
+    if not request.bypass_cache:
+        cached_result = cache_service.get_cached_analysis(request.repo_url)
+        if cached_result:
+            await update_progress("Checking for repository updates...")
+            # Validate if it's still fresh by checking latest commit SHA
+            try:
+                # Fetch only the very latest commit SHA via GraphQL
+                latest_sha_data = await github_service.fetch_commits_paginated_graphql(owner, repo, limit=1)
+                if latest_sha_data:
+                    current_sha = latest_sha_data[0].get("oid")
+                    if current_sha == cached_result["latest_commit_sha"]:
+                        await update_progress("Using cached analysis...")
+                        await update_progress("DONE")
+                        return cached_result["analysis_data"]
+            except Exception as e:
+                print(f"Cache validation failed: {e}")
+                # If validation fails for some reason (network, etc), we just proceed to full re-analysis
     
     try:
         await update_progress("Fetching repository metadata...")
@@ -301,6 +323,14 @@ async def analyze_repository(request: AnalyzeRequest):
             "momentum": momentum
         }
         
+        # 8. Save to Cache
+        try:
+            # We need the SHA of the latest commit used in this analysis
+            latest_commit_sha = raw_commits[0].get("oid") if raw_commits else None
+            cache_service.save_analysis(request.repo_url, latest_commit_sha, response)
+        except Exception as e:
+            print(f"Error saving to cache: {e}")
+            
         return response
         
     except httpx.HTTPStatusError as e:
