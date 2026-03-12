@@ -16,6 +16,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code into the container
 COPY . .
 
+# Create data directory for SQLite persistence
+RUN mkdir -p /app/data
+
 # Expose the port the app runs on
 EXPOSE 8000
 

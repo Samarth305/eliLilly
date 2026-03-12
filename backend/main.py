@@ -48,6 +48,11 @@ class ProgressManager:
 
 progress_manager = ProgressManager()
 
+# Global Service Instantiation
+github_service = GitHubService()
+story_service = GroqService()
+cache_service = CacheService(db_path=os.getenv("DB_PATH", "repository_cache.db"))
+
 @app.get("/analyze-stream")
 async def analyze_stream(request_id: str = Query(...)):
     async def event_generator():
@@ -98,10 +103,6 @@ async def analyze_repository(request: AnalyzeRequest):
         owner, repo = parse_github_url(request.repo_url)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-        
-    github_service = GitHubService()
-    story_service = GroqService()
-    cache_service = CacheService()
     
     # 0. Check Cache
     if not request.bypass_cache:
