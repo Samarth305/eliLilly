@@ -1,56 +1,38 @@
 # 📖 Git History Storyteller (v3.0)
 
-> **Transforming raw Git signals into meaningful human narratives.**
-
+> **Transforming raw Git signals into meaningful human narratives through AI-driven intelligence and O(N) statistical extraction.**
 
 [![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.95+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-18.0+-61DAFB?style=flat&logo=react&logoColor=white)](https://reactjs.org/)
 [![GraphQL](https://img.shields.io/badge/GitHub_GraphQL-API-e10098?style=flat&logo=graphql&logoColor=white)](https://docs.github.com/en/graphql)
 [![SQLite](https://img.shields.io/badge/SQLite-Persistence-003B57?style=flat&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
-
-**Git History Storyteller** is an AI-powered repository intelligence dashboard. It goes beyond basic commit tracking to analyze code churn, knowledge distribution, and architectural evolution, translating thousands of technical signals into a compelling, human-readable narrative.
-
----
-
-## 🚀 Key Features
-
-### 🧠 Intelligence & Narrative Layer
-- **AI Story Cards**: Transforms raw technical signals into a structured narrative. Each "Story Card" represents a logical development phase (e.g., "Initial Prototype", "Scaling Pivot", "Stabilization").
-- **Project Intelligence Overview**: Real-time AI summaries that explain the core intent and current state of the repository.
-- **Architectural Shift Detection**: Automatically identifies major refactors or structural pivots by monitoring high-impact commit clusters.
-
-### 🔍 Advanced Analytics Engine (The "Deep-Dive")
-- **Contributor Insights Engine**: 
-    - **Core Maintainer Detection**: Identifies individuals responsible for project direction.
-    - **Ownership Analysis (Knowledge Silos)**: Detects "high coverage risk" areas where project knowledge is concentrated in too few minds.
-    - **High-Impact Scoring**: A weighted metric combining additions, deletions, and file breadth to quantify real developer impact.
-- **Hotspot & Churn Analysis**: Uses a sophisticated `Risk = Frequency * Impact` formula to find critical, high-volatility files.
-- **Resilience Metrics**: Computes **Bus Factor**, **Maturity Score**, and **Efficiency Index** to quantify the health of the project.
-
-### ⚡ Systems Engineering & Performance
-- **Hybrid Data Strategy (v3.0)**: 
-    - **GraphQL Bulk Retrieval**: Massive batch fetching of releases, metadata, and 300+ commit headers reduces API roundtrips by 80%.
-    - **Parallel REST Enrichment**: 40+ concurrent workers for high-fidelity commit analysis.
-- **Persistent SQLite Caching**: Analysis results are persisted locally. Returning users experience **<100ms load times**.
-- **Smart Validation**: Automatically checks GitHub for new commits to ensure the cache never serves stale data.
-- **API Resilience**: Industrial-grade retry logic with exponential backoff for transient GitHub/AI provider errors.
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
 
 ---
 
-## 🛠️ Tech Stack
+## 🌟 The Vision
+Git repositories are more than just code—they are living histories of human collaboration, architectural pivots, and technical evolution. **Git History Storyteller** translates thousands of raw commits into a premium dashboard that tells the *story* of your project.
 
-### Frontend
-- **React + Vite**: High-performance single-page architecture.
-- **TailwindCSS**: Premium Glassmorphism UI with custom mesh gradients.
-- **Recharts**: Interactive data visualization (Commit Frequency, Hot Modules, Velocity charts).
-- **Lucide Icons**: Clean, technical iconography.
+---
 
-### Backend
-- **Python FastAPI**: Asynchronous high-throughput API layer.
-- **SQLite**: Local persistence and analysis caching.
-- **LLM Context Engine**: Optimized prompt engineering for **Groq (Llama 3.3)** and **Google Gemini**, with local **Ollama** fallbacks.
-- **GitHub API Gateway**: Hybrid GraphQL and REST implementation.
+## 🧠 The "Storyteller" Engine
+
+### 1. Hybrid Data Extraction
+The system utilizes a dual-protocol engine to balance speed and depth:
+- **Bulk Metadata (GraphQL)**: Uses a single complex query to fetch thousands of commit headers, PRs, and releases. This reduces API roundtrips by **85%**.
+- **Deep Enrichment (REST)**: For the most impactful commits (recent work or major refactors), the engine triggers 40+ concurrent REST calls to extract granular file diffs and churn data.
+
+### 2. O(N) Statistics & Signal Extraction
+Unlike standard Git tools that walk the history multiple times, our custom engine processes thousands of data points in a **single linear pass**:
+- **Architecture Shift Detection**: Identifies structural pivots when `commit_size > mean + 3σ` and multi-directory churn is detected.
+- **Bus Factor & Knowledge Silos**: Computes entropy-based ownership scores to flag areas where project continuity is at risk.
+- **Maturity & Growth Metrics**: Heuristic scoring based on commit frequency, contributor diversity, and feature-to-bugfix ratios.
+
+### 3. AI Narrative & Resilience
+The data signals are compressed into "Technical Context Packs" and sent to the AI Layer:
+- **Primary Engine**: **Groq (Llama 3.3 70B)** or **Gemini Flash 2.0** for hyper-fast, thematic storytelling.
+- **Resilience Fallback**: If cloud APIs are unreachable, the system automatically falls back to a **local Ollama (Gemma 2)** instance, ensuring your documentation engine is always offline-capable.
 
 ---
 
@@ -58,36 +40,57 @@
 
 ```mermaid
 graph TD
-    UI[React Glassmorphism UI] -->|SSE Stream| API[FastAPI Orchestrator]
-    API -->|Validation| Cache[(SQLite Cache)]
-    API -->|Bulk Fetch| GH_GQL[GitHub GraphQL API]
-    API -->|Enrichment| GH_REST[GitHub REST API]
-    API -->|O(N) Processing| SE[Statistics Engine]
-    SE -->|Signal Compression| AI[LLM Engine: Groq/Gemini/Ollama]
-    AI -->|JSON Artifacts| UI
+    UI["React Glassmorphism UI"] -->|"SSE Stream"| API[FastAPI Orchestrator]
+    API -->|"Validation"| Cache[(SQLite Cache)]
+    API -->|"Bulk Fetch"| GH_GQL["GitHub GraphQL API"]
+    API -->|"Enrichment"| GH_REST["GitHub REST API"]
+    API -->|"O(N) Processing"| SE["Statistics Engine"]
+    SE -->|"Signal Compression"| AI["LLM Engine: Groq/Gemini/Ollama"]
+    AI -->|"JSON Artifacts"| UI
 ```
 
 ---
 
-## 🚦 Getting Started
+## ⚡ Performance & Persistence
 
-### 1. Prerequisites
-- Python 3.9+ and Node.js 18+
-- GitHub Personal Access Token (classic or fine-grained)
-- Groq or Gemini API Key (Optional for AI narratives)
+### 💾 SHA-Based Caching
+Every analysis is hashed using the latest commit's SHA.
+- **Cache Hit**: If the repository hasn't changed, the dashboard loads in **<150ms** from the local SQLite database.
+- **Cache Miss**: The system performs a partial re-analysis of only the new commits, merging them with existing cached data.
 
-### 2. Backend Setup
+### 🐳 Docker Optimization
+The project is fully containerized with production-grade separation:
+- **Backend Service**: High-throughput FastAPI server with internal connection pooling.
+- **Frontend Service**: Nginx-backed React build for maximum delivery speed.
+- **Data Persistence**: Uses Docker Volumes to ensure your repository cache and API configurations persist across container rebuilds.
+
+---
+
+## 🛠️ Installation & Setup
+
+### 1. Environment Variables
+Create a `.env` file in the `backend/` directory:
+```bash
+GITHUB_TOKEN=your_token
+GROQ_API_KEY=your_key
+# DB_PATH=/app/data/repository_cache.db (Optional for Docker)
+```
+
+### 2. Docker Deployment (Recommended)
+```bash
+docker-compose up --build -d
+# Accessible at http://localhost:5173
+```
+
+### 3. Manual Development Setup
+**Backend:**
 ```bash
 cd backend
-# Create a .env file
-echo "GITHUB_TOKEN=your_token" > .env
-echo "GROQ_API_KEY=your_key" >> .env
-
 pip install -r requirements.txt
 python main.py
 ```
 
-### 3. Frontend Setup
+**Frontend:**
 ```bash
 cd frontend
 npm install
@@ -96,13 +99,15 @@ npm run dev
 
 ---
 
-## 📁 Project Structure
-- `backend/`: FastAPI application, O(N) O(N) statistical engines, and AI context services.
-- `frontend/`: React dashboard featuring premium UI components and Recharts visualization.
-- `README.md`: Comprehensive documentation and project overview.
-- `repository_cache.db`: SQLite persistence layer (auto-generated).
+## 📁 Project Map
+- `backend/`: Python core, statistics engine, and AI context factory.
+- `frontend/`: React dashboard with TailwindCSS and Recharts.
+- `backend/data/`: Persistent SQLite storage (Docker Volume mount).
+- `VISUAL_ARCHITECTURE.md`: Deep technical diagrams and state machines.
 
 ---
 
-## 🎯 Project Vision
-To empower developers and tech leads with "Repository X-Ray Vision," reducing code audit times from days to seconds by finding the signal in the noise of thousands of commits.
+## 🎯 Target Audience
+- **Tech Leads**: Quickly audit repository health and knowledge distribution.
+- **Engineering Managers**: Visualize team momentum and development phases.
+- **Open Source Maintainers**: Create beautiful "Project Evolution" narratives for your landing pages.
