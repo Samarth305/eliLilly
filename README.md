@@ -1,84 +1,77 @@
-# Git History Storyteller
+# Git History Storyteller (v3.0)
 
-An AI-powered repository analysis dashboard that transforms complex Git history into a structured narrative.
+[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.95+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18.0+-61DAFB?style=flat&logo=react&logoColor=white)](https://reactjs.org/)
+[![GraphQL](https://img.shields.io/badge/GitHub_GraphQL-API-e10098?style=flat&logo=graphql&logoColor=white)](https://docs.github.com/en/graphql)
 
-## 📖 Project Overview
-*   **Purpose:** To help developers and managers quickly understand the lifecycle, health, and evolution of any given software project.
-*   **Mechanism:** Extracts raw signals from Git history, processes them through a statistical engine, and uses AI to write a creative, human-readable timeline mapping out the repository's journey.
-
-## ⚙️ Key Functionalities
-*   **Metadata Extraction:** Recursively fetches commits, contributors, pull requests, and structural data using GitHub's GraphQL and REST APIs.
-*   **Heuristic Analysis:** Analyzes commit messages, diff sizes, and file extensions to categorize commits (e.g., feature, bugfix, refactor, dependency).
-*   **Evolutionary Storytelling:** Leverages Groq (Llama 3 70b) or local Ollama models to generate creative, thematic chapter summaries of development phases.
-*   **Health Metrics Calculation:** Computes Bus Factor (team resilience), Maturity Score, Codebase Efficiency, and top Contributors' Impact automatically.
-*   **"Hot Module" Detection:** Tracks the specific folders and files that are most frequently mutated over time.
-
-## 🔄 Data Flow Architecture
-1. **User Input:** User submits a valid GitHub repository URL via the React frontend.
-2. **Data Orchestration (Backend):** FastAPI receives the request and triggers the `GitHubService`.
-3. **Signal Gathering:** Backend pulls down hundreds of recent commits and repository metrics.
-4. **Statistical Processing:** The `StatisticsEngine` organizes commits chronologically, groups them into defined "Development Phases," identifies "Architecture Shifts," and calculates Risk/Maturity scores.
-5. **AI Generation:** The highly compressed `structured_signals` object is injected into a specialized prompt and sent to Groq. 
-6. **Response Synthesis:** Groq streams back a JSON array of creative "Story Cards" representing the project's timeline.
-7. **Visualization:** The completed dataset is sent back to the frontend, rendering the interactive Glassmorphism UI, Recharts graphics, and Markdown narratives.
+**Git History Storyteller** is an advanced repository intelligence dashboard that transforms complex Git history into an interactive, AI-driven narrative. It combines high-performance statistical extraction with Large Language Models (LLMs) to tell the unique story of a codebase's evolution.
 
 ---
 
-## ✨ Recent Enhancements (v2.0)
+## 🚀 Key Features
 
-*   **Primary LLM Migration:** Upgraded from Gemini to Groq (`llama-3.3-70b-versatile`) as the primary AI engine, with Ollama (`gemma3:4b`) configured as a local fallback.
-*   **Creative Story Chapters:** AI prompts strictly enforce creative, thematic chapter titles instead of generic development phases.
-*   **Deep Narrative Context:** Narrative generation now analyzes Milestones, Architecture Changes, and Contributor Insights in addition to commit phases.
-*   **Optimized Data Fetching:** Implemented GraphQL for bulk fetching of GitHub repository data, drastically improving analysis speed over traditional REST.
-*   **Premium UI & Aesthetics:**
-    *   Dark, animated "mesh gradient" backgrounds.
-    *   Refined **Glassmorphism** for data cards (`backdrop-filter: blur(16px)`).
-    *   Hover glow micro-interactions across timelines, cards, and charts.
-    *   Improved typography scale, tracking, and font selections (`Outfit`, `Inter`, `Fira Code`).
-*   **Enhanced Visualizations:** Replaced the legacy "Development Velocity" line chart with an interactive "Commit Frequency" Bar Chart mapping monthly activity.
-*   **Robust Data Models:** Fixed critical API bugs where `bus_factor` and `maturity_score` were being stripped from the Pydantic API response.
-*   **Full Dockerization:** 
-    *   Project is fully containerized using `docker-compose`.
-    *   Frontend served via NGINX.
-    *   Backend backend dependencies (like `groq`) correctly mapped in `requirements.txt`.
-*   **Clean Version Control:** Sanitized `.gitignore` to automatically exclude all local `debug_*.py` development scripts.
+### 🧠 Intelligence & Narrative
+- **AI-Driven Storytelling**: Generates thematic "Project Evolution" chapters using **Groq (Llama 3.3)** with localized **Ollama** fallback.
+- **Project Overviews**: Contextual AI summaries explaining the core intent and current state of the repository.
+- **Architectural Shift Detection**: Automatically identifies major refactors or structural pivots based on code impact and commit intent.
+
+### 📊 Advanced Analytics Engine
+The core of the system is the **High-Performance Statistics Engine**, which processes thousands of raw Git signals into actionable intelligence:
+
+- **Advanced Hotspots**: Moves beyond raw commit counts to a sophisticated **Risk Score** calculated as `(commit_count * average_impact)`. This highlights complex, frequently changed files that are most likely to contain regressions.
+- **Knowledge Silo Detection**: Monitors maintainability risk by calculating the **Contributor Ownership Ratio**. It identifies critical modules where code knowledge is concentrated in a single "silo," posing a significant "Bus Factor" risk.
+- **Code Churn & Stability**: Mathematically identifies unstable modules by tracking the ratio of `additions` vs. `deletions` vs. `total_impact`. Files with high churn are flagged as high-maintenance hotspots.
+- **Evolutionary Development Phases**: Uses temporal clustering to group commits into logical eras (e.g., "Initial Prototype," "Scaling Refactor," "Stability Period"), allowing for a thematic understanding of project growth.
+- **Efficiency Index**: A derivative score of velocity vs. quality, quantifying how effectively specialized categories (Features vs. Refactors) are balanced over time.
+
+### ⚡ Performance & Resilience
+- **Persistent SQLite Caching**: Analysis results are cached locally. Returning users experience **<100ms load times** via a dedicated LRU-managed persistence layer.
+- **SHA-Based Validation**: The engine automatically checks for new commits on GitHub to ensure the cache never serves stale data.
+- **Hybrid Data Fetching**: Optimized GraphQL bulk retrieval combined with REST enrichment for high-fidelity commit data (O(N) complexity).
+- **API Stability**: Built-in exponential backoff and retry mechanisms for GitHub API (502/503/504) and rate-limit management.
 
 ---
 
 ## 🛠️ Tech Stack
 
-*   **Frontend:** React, Vite, TailwindCSS (Typography plugin), Lucide Icons, Recharts.
-*   **Backend:** Python FastAPI, Uvicorn, httpx, Pydantic, Groq API SDK.
-*   **Data Source:** GitHub GraphQL & REST API.
+- **Backend**: Python, FastAPI, SQLite, httpx, Groq SDK.
+- **Frontend**: React, Vite, Recharts (Visualizations), Lucide (Icons), Glassmorphism UI.
+- **Analysis**: O(N) Complexity engines for linear scalability across thousands of commits.
 
 ---
 
-## 🚦 Getting Started (Local Development)
+## 🚦 Getting Started
 
-### Backend Setup
-1. `cd backend`
-2. Create `.env`:
-   ```env
-   GITHUB_TOKEN=your_github_token
-   GROQ_API_KEY=your_groq_api_key
-   ```
-3. `pip install -r requirements.txt`
-4. `python main.py`
+### 1. Prerequisites
+- A **GitHub Personal Access Token** (classic or fine-grained).
+- A **Groq API Key** (optional but recommended for high-quality narratives).
 
-### Frontend Setup
-1. `cd frontend`
-2. `npm install`
-3. `npm run dev`
-
----
-
-## 🐳 Getting Started (Docker)
-
-Ensure your `.env` is set up inside the `backend` directory, then simply run:
-
+### 2. Backend Setup
 ```bash
-docker-compose up --build -d
+cd backend
+# Create a .env file
+echo "GITHUB_TOKEN=your_token" > .env
+echo "GROQ_API_KEY=your_key" >> .env
+
+pip install -r requirements.txt
+python main.py
 ```
 
-*   Frontend will be available at `http://localhost:5173`
-*   Backend API will be running on `http://localhost:8000`
+### 3. Frontend Setup
+```bash
+cd frontend
+npm install
+npm run dev
+```
+The dashboard will be available at `http://localhost:5173`.
+
+---
+
+## 🔄 How it Works
+
+1. **Signal Extraction**: The system pulls down 300+ most recent commits and full repository metadata via GraphQL.
+2. **Heuristic Processing**: Every commit is classified into 12 distinct categories (Feature, Bugfix, Refactor, etc.) using file patterns and keyword heuristics.
+3. **Statistical Modeling**: The `StatisticsEngine` computes developer velocity, impact scores, and clusters timeline events into logical "Development Phases."
+4. **Narrative Synthesis**: Compressed analytical signals are sent to the AI engine to generate a readable project timeline.
+5. **Persistence**: Results are stored in an LRU-managed SQLite database for instant retrieval.
