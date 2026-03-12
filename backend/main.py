@@ -365,7 +365,7 @@ async def analyze_repository(request: AnalyzeRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     finally:
-        await github_service.close()
+        pass
 
 if __name__ == "__main__":
     # Start the server using uvicorn e.g. python main.py
