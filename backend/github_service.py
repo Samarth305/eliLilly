@@ -85,21 +85,35 @@ class GitHubService:
         }
         """
         variables = {"owner": owner, "repo": repo}
-        return await self._execute_graphql(query, variables)
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = await self.client.post(self.graphql_url, json={"query": query, "variables": variables})
+                if response.status_code == 200:
+                    return response.json().get("data", {})
+                elif response.status_code in [502, 503, 504]:
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1 * (attempt+1))
+                        continue
+                print(f"GraphQL Meta Error ({response.status_code}): {response.text}")
+                break
+            except (httpx.RequestError, httpx.TimeoutException):
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(1)
+                    continue
+                break
+        return {}
 
     async def fetch_commits_paginated_graphql(self, owner: str, repo: str, limit: int = 2000) -> List[Dict[str, Any]]:
-        """Paginate through commit history via GraphQL."""
-        all_commits = []
-        cursor = None
-        has_next_page = True
-        
+        """Fetch commit history efficiently via GraphQL with retries."""
         query = """
-        query($owner: String!, $repo: String!, $limit: Int!, $cursor: String) {
+        query($owner: String!, $repo: String!, $cursor: String, $pageSize: Int!) {
           repository(owner: $owner, name: $repo) {
             defaultBranchRef {
               target {
                 ... on Commit {
-                  history(first: $limit, after: $cursor) {
+                  history(first: $pageSize, after: $cursor) {
                     totalCount
                     pageInfo {
                       hasNextPage
@@ -126,35 +140,51 @@ class GitHubService:
         }
         """
         
-        # We fetch in chunks of 100 to be safe and responsive
-        chunk_size = 100
-        while has_next_page and len(all_commits) < limit:
-            variables = {
-                "owner": owner, 
-                "repo": repo, 
-                "limit": chunk_size, 
-                "cursor": cursor
-            }
-            data = await self._execute_graphql(query, variables)
+        commits = []
+        cursor = None
+        page_size = min(limit, 100)
+        
+        while len(commits) < limit:
+            variables = {"owner": owner, "repo": repo, "cursor": cursor, "pageSize": page_size}
             
-            repo_node = data.get("repository")
-            if not repo_node:
+            max_retries = 3
+            success = False
+            for attempt in range(max_retries):
+                try:
+                    response = await self.client.post(self.graphql_url, json={"query": query, "variables": variables})
+                    if response.status_code == 200:
+                        success = True
+                        break
+                    elif response.status_code in [502, 503, 504]:
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(1 * (attempt + 1))
+                            continue
+                    print(f"GraphQL Commit Error ({response.status_code}): {response.text}")
+                    break
+                except (httpx.RequestError, httpx.TimeoutException):
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1)
+                        continue
+                    break
+            
+            if not success:
                 break
                 
-            branch_ref = repo_node.get("defaultBranchRef") or {}
-            history = branch_ref.get("target", {}).get("history", {})
-            
-            nodes = history.get("nodes", [])
-            all_commits.extend(nodes)
+            data = response.json().get("data", {})
+            repo_data = data.get("repository")
+            if not repo_data or not repo_data.get("defaultBranchRef"):
+                break
+                
+            history = repo_data["defaultBranchRef"]["target"]["history"]
+            new_nodes = history.get("nodes", [])
+            commits.extend(new_nodes)
             
             page_info = history.get("pageInfo", {})
-            has_next_page = page_info.get("hasNextPage", False)
+            if not page_info.get("hasNextPage") or len(commits) >= limit:
+                break
             cursor = page_info.get("endCursor")
             
-            if not cursor:
-                break
-                
-        return all_commits[:limit]
+        return commits[:limit]
 
     async def _wait_if_rate_limited(self):
         """Shared guard to prevent multiple parallel tasks from hitting 403 or sleeping redundantly."""
@@ -171,6 +201,7 @@ class GitHubService:
         """
         Generic pagination method that fetches pages until GitHub returns an empty list
         or a list smaller than per_page (indicating the last page).
+        Included retries for 502/503/504.
         """
         if params is None:
             params = {}
@@ -183,19 +214,37 @@ class GitHubService:
         while True:
             await self._wait_if_rate_limited()
             params["page"] = page
-            response = await self.client.get(url, params=params)
             
-            if response.status_code != 200:
-                if response.status_code == 403:
-                    remaining = response.headers.get("X-RateLimit-Remaining")
-                    if remaining == "0":
-                        reset = int(response.headers["X-RateLimit-Reset"])
-                        self._rate_limit_reset = max(self._rate_limit_reset, reset)
-                        await self._wait_if_rate_limited()
-                        continue # Retry
-                    print(f"Rate limit reached ({response.status_code}) for {url}. Remaining: {remaining}")
-                else:
-                    print(f"API Error ({response.status_code}) on {url}: {response.text}")
+            # Implementation of retries for transient server errors
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    response = await self.client.get(url, params=params)
+                    if response.status_code == 200:
+                        break
+                    elif response.status_code in [502, 503, 504]:
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(1 * (attempt + 1))
+                            continue
+                    
+                    if response.status_code == 403:
+                        remaining = response.headers.get("X-RateLimit-Remaining")
+                        if remaining == "0":
+                            reset = int(response.headers["X-RateLimit-Reset"])
+                            self._rate_limit_reset = max(self._rate_limit_reset, reset)
+                            await self._wait_if_rate_limited()
+                            continue # Retry
+                        print(f"Rate limit reached ({response.status_code}) for {url}. Remaining: {remaining}")
+                    else:
+                        print(f"API Error ({response.status_code}) on {url}: {response.text}")
+                    break
+                except httpx.RequestError as e:
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1)
+                        continue
+                    raise e
+            else:
+                # All retries failed
                 break
                 
             page_data = response.json()
@@ -231,19 +280,35 @@ class GitHubService:
         return await self._fetch_all_pages(url, params={"per_page": per_page})
         
     async def get_commit_details(self, owner: str, repo: str, sha: str) -> Dict[str, Any]:
+        """Fetch full commit details with retry logic."""
         await self._wait_if_rate_limited()
         url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/commits/{sha}"
-        response = await self.client.get(url)
-        if response.status_code == 200:
-            return response.json()
-        elif response.status_code == 403:
-            remaining = response.headers.get("X-RateLimit-Remaining")
-            if remaining == "0":
-                reset = int(response.headers["X-RateLimit-Reset"])
-                self._rate_limit_reset = max(self._rate_limit_reset, reset)
-                await self._wait_if_rate_limited()
-                return await self.get_commit_details(owner, repo, sha) # Retry
-            print(f"Rate limit reached for details ({sha}). Remaining: {remaining}")
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = await self.client.get(url)
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code in [502, 503, 504]:
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1 * (attempt + 1))
+                        continue
+                elif response.status_code == 403:
+                    remaining = response.headers.get("X-RateLimit-Remaining")
+                    if remaining == "0":
+                        reset = int(response.headers["X-RateLimit-Reset"])
+                        self._rate_limit_reset = max(self._rate_limit_reset, reset)
+                        await self._wait_if_rate_limited()
+                        return await self.get_commit_details(owner, repo, sha) # Recursive retry
+                    print(f"Rate limit reached for details ({sha}). Remaining: {remaining}")
+                
+                break # Non-retryable error or success (though 200 returned early)
+            except (httpx.RequestError, httpx.TimeoutException):
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(1)
+                    continue
+                break
         return {}
 
     async def get_branches(self, owner: str, repo: str) -> List[Dict[str, Any]]:
@@ -264,16 +329,26 @@ class GitHubService:
         return await self._fetch_all_pages(url, params={"state": "all"})
     
     async def get_readme(self, owner: str, repo: str) -> str:
-        """Fetch the README content of a repository."""
+        """Fetch the repository README content with retries."""
         url = f"{GITHUB_API_URL}/repos/{owner}/{repo}/readme"
-        try:
-            response = await self.client.get(url, headers={"Accept": "application/vnd.github.v3.raw"})
-            if response.status_code == 200:
-                return response.text
-            return ""
-        except Exception as e:
-            print(f"Error fetching README: {e}")
-            return ""
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = await self.client.get(url, headers={"Accept": "application/vnd.github.raw"})
+                if response.status_code == 200:
+                    return response.text
+                elif response.status_code in [502, 503, 504]:
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1 * (attempt + 1))
+                        continue
+                break
+            except (httpx.RequestError, httpx.TimeoutException):
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(1)
+                    continue
+                break
+        return ""
     
     async def close(self):
         await self.client.aclose()

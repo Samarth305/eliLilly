@@ -619,7 +619,7 @@ class StatisticsEngine:
             }
             
         phases = []
-        current_weeks = [active_weeks[0]]
+        current_weeks = [active_weeks[0]] if active_weeks else []
         
         for i in range(1, len(active_weeks)):
             prev_week = active_weeks[i-1]
@@ -633,12 +633,23 @@ class StatisticsEngine:
             if is_consecutive:
                 current_weeks.append(curr_week)
             else:
+                # Close current phase
+                # Heuristic: 2+ weeks, OR 1 week if it has > 1.5x the average complexity
                 if len(current_weeks) >= 2:
                     phases.append(compute_phase_stats(current_weeks))
+                elif len(current_weeks) == 1:
+                    week_commits = weekly_commits_map[current_weeks[0]]
+                    if len(week_commits) >= avg_commits * 1.5 or len(week_commits) > 5:
+                        phases.append(compute_phase_stats(current_weeks))
                 current_weeks = [curr_week]
                 
-        if len(current_weeks) >= 2:
-            phases.append(compute_phase_stats(current_weeks))
+        if current_weeks:
+            if len(current_weeks) >= 2:
+                phases.append(compute_phase_stats(current_weeks))
+            elif len(current_weeks) == 1:
+                week_commits = weekly_commits_map[current_weeks[0]]
+                if len(week_commits) >= avg_commits * 1.5 or len(week_commits) > 5:
+                    phases.append(compute_phase_stats(current_weeks))
             
         # Sort phases by significance (commit_count) and limit to top 5
         significant_phases = sorted(phases, key=lambda x: x["commit_count"], reverse=True)[:5]

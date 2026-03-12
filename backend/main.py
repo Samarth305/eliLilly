@@ -129,7 +129,7 @@ async def analyze_repository(request: AnalyzeRequest):
         
         # 3. Smart Hybrid Enrichment
         detailed_commits = []
-        sem = asyncio.Semaphore(50)
+        sem = asyncio.Semaphore(40)
         
         # Calculate size threshold for outlier detection in history
         import statistics
@@ -148,11 +148,16 @@ async def analyze_repository(request: AnalyzeRequest):
                         return CommitAnalyzer.extract_summary(detail)
             
             # Fallback for old/small commits: Use GraphQL metadata (no file lists)
+            message = gql_commit.get("message", "")
+            classification = CommitAnalyzer.classify_commit({"message": message, "files": [], "additions": gql_commit.get("additions", 0), "deletions": gql_commit.get("deletions", 0)})
+            
             return {
                 "sha": sha,
-                "message": gql_commit.get("message", ""),
+                "message": message,
                 "date": gql_commit.get("committedDate"),
                 "author": gql_commit.get("author", {}).get("user", {}).get("login") or gql_commit.get("author", {}).get("name", "Unknown"),
+                "type": classification["category"],
+                "classification_confidence": classification["confidence"],
                 "additions": gql_commit.get("additions", 0),
                 "deletions": gql_commit.get("deletions", 0),
                 "files_changed": [], # Empty for non-enriched
@@ -162,7 +167,7 @@ async def analyze_repository(request: AnalyzeRequest):
         # Execute enrichment tasks
         tasks = []
         for i, c in enumerate(raw_commits):
-            is_recent = i < 200 # Deeply analyze the 200 most recent
+            is_recent = i < 300 # Deeply analyze the 300 most recent
             tasks.append(asyncio.create_task(enrich_commit(c, force=is_recent)))
             
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -299,7 +304,17 @@ async def analyze_repository(request: AnalyzeRequest):
         return response
         
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=f"GitHub API error: {e.response.text}")
+        import traceback
+        traceback.print_exc()
+        # Instead of propagating 502, return a 503 so the user knows it's an upstream issue we can't solve now
+        status_code = e.response.status_code
+        if status_code >= 500:
+             raise HTTPException(status_code=503, detail="GitHub is currently experiencing issues. Please try again in 30 seconds.")
+        raise HTTPException(status_code=status_code, detail=f"GitHub API error: {e.response.text}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     finally:
         await github_service.close()
 
