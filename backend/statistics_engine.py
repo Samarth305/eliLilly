@@ -205,6 +205,7 @@ class StatisticsEngine:
             hot_modules.append({
                 "module": module,
                 "commits": stats["commits"],
+                "count": stats["commits"],  # Added for frontend compatibility
                 "avg_impact": round(avg_impact, 2),
                 "churn": stats["total_churn"],
                 "hotspot_score": round(hotspot_score, 2),

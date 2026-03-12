@@ -362,13 +362,13 @@ function App() {
                             <BarChart data={data.hot_modules.slice(0, 10)} layout="vertical">
                               <CartesianGrid strokeDasharray="4" stroke="rgba(255,255,255,0.05)" horizontal={false} />
                               <XAxis type="number" hide />
-                              <YAxis dataKey="module" type="category" width={90} stroke="#64748b" tick={{ fontSize: 12, fontWeight: 600 }} />
+                              <YAxis dataKey="module" type="category" width={120} stroke="#64748b" tick={{ fontSize: 12, fontWeight: 600 }} />
                               <Tooltip
                                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                 contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' }}
                                 itemStyle={{ color: '#3b82f6', fontWeight: 800 }}
                               />
-                              <Bar dataKey="count" fill="url(#blueGradient)" radius={[0, 8, 8, 0]} barSize={20}>
+                              <Bar dataKey="hotspot_score" name="Hotspot Score" fill="url(#blueGradient)" radius={[0, 8, 8, 0]} barSize={20}>
                                 <defs>
                                   <linearGradient id="blueGradient" x1="0" y1="0" x2="1" y2="0">
                                     <stop offset="0%" stopColor="#3b82f6" />
