@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   GitCommit, Users, GitBranch, Tag, ArrowRight, Loader2,
   Activity, BookOpen, Clock, AlertTriangle, Layers, GitPullRequest, GitFork, Shield, Award, Zap,
-  CheckCircle2, Circle , Star
+  CheckCircle2, Circle , Star, Trash2
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend, Cell
@@ -107,6 +107,26 @@ function App() {
     }
   };
 
+  const handleClearCache = async () => {
+    if (!repoUrl.trim()) return;
+    
+    try {
+      const response = await fetch(`http://localhost:8000/clear-cache?repo_url=${encodeURIComponent(repoUrl)}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        alert("Cache cleared for this repository!");
+        setData(null);
+      } else {
+        const errData = await response.json();
+        alert(`Failed to clear cache: ${errData.detail}`);
+      }
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    }
+  };
+
   return (
     <div className="min-h-screen text-slate-100 p-4 md:p-8 font-sans antialiased">
       <div className="max-w-7xl mx-auto space-y-12">
@@ -144,6 +164,16 @@ function App() {
             {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Analyze'}
             {!loading && <ArrowRight className="w-6 h-6" />}
           </button>
+          {repoUrl && !loading && (
+            <button
+              type="button"
+              onClick={handleClearCache}
+              title="Clear cache for this repository"
+              className="p-4 rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+            >
+              <Trash2 className="w-6 h-6" />
+            </button>
+          )}
         </form>
 
         {/* Enchanced Loading State */}

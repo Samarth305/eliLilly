@@ -86,3 +86,12 @@ class CacheService:
                 conn.commit()
         except Exception as e:
             print(f"Cache invalidation error: {e}")
+
+    def clear_all_cache(self):
+        """Invalidate the entire cache."""
+        try:
+            with self._get_connection() as conn:
+                conn.execute("DELETE FROM repository_cache")
+                conn.commit()
+        except Exception as e:
+            print(f"Clear all cache error: {e}")

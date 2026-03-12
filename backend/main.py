@@ -68,6 +68,24 @@ async def analyze_stream(request_id: str = Query(...)):
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
+@app.delete("/clear-cache")
+async def clear_cache(repo_url: str = Query(...)):
+    """Clear cache for a specific repository."""
+    try:
+        cache_service.invalidate_cache(repo_url)
+        return {"message": f"Cache cleared for {repo_url}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/clear-all-cache")
+async def clear_all_cache():
+    """Clear the entire repository cache."""
+    try:
+        cache_service.clear_all_cache()
+        return {"message": "Entire cache cleared successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class AnalyzeRequest(BaseModel):
     repo_url: str
     request_id: str = None
