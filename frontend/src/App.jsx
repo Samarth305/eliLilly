@@ -20,6 +20,7 @@ function App() {
   const [error, setError] = useState('');
   const [loadingStep, setLoadingStep] = useState('');
   const [completedSteps, setCompletedSteps] = useState([]);
+  const [visibleMilestonesCount, setVisibleMilestonesCount] = useState(10);
 
   const headerRef = useRef(null);
   const inputAreaRef = useRef(null);
@@ -75,6 +76,7 @@ function App() {
     setError('');
     setData(null);
     setCompletedSteps([]);
+    setVisibleMilestonesCount(10);
     setLoadingStep(steps[0]);
 
     const eventSource = new EventSource(`${API_BASE_URL}/analyze-stream?request_id=${requestId}`);
@@ -354,15 +356,24 @@ function App() {
                   <div className="bg-gum-blue border-b-2 border-black p-4">
                     <h2 className="text-3xl uppercase m-0 leading-none">Timeline</h2>
                   </div>
-                  <div className="p-6 space-y-8">
-                    {data.milestones.map((m, i) => (
-                      <div key={i} className="relative pl-8 border-l-[3px] border-black pb-8 last:pb-0">
-                        <div className="absolute -left-[11px] top-0 w-5 h-5 bg-gum-yellow border-[3px] border-black"></div>
-                        <div className="text-xs font-black uppercase mb-1 leading-none">{new Date(m.date).toLocaleDateString()}</div>
-                        <div className="font-bold text-lg leading-tight">{m.event_description}</div>
-                      </div>
-                    ))}
-                  </div>
+                   <div className="p-6 space-y-8">
+                     {data.milestones.slice(0, visibleMilestonesCount).map((m, i) => (
+                       <div key={i} className="relative pl-8 border-l-[3px] border-black pb-8 last:pb-0">
+                         <div className="absolute -left-[11px] top-0 w-5 h-5 bg-gum-yellow border-[3px] border-black"></div>
+                         <div className="text-xs font-black uppercase mb-1 leading-none">{new Date(m.date).toLocaleDateString()}</div>
+                         <div className="font-bold text-lg leading-tight">{m.event_description}</div>
+                       </div>
+                     ))}
+                     
+                     {data.milestones.length > visibleMilestonesCount && (
+                       <button 
+                         onClick={() => setVisibleMilestonesCount(prev => prev + 10)}
+                         className="w-full py-4 border-2 border-dashed border-black hover:border-solid hover:bg-gum-yellow transition-all font-black uppercase text-sm brutalist-shadow"
+                       >
+                         Show More ({data.milestones.length - visibleMilestonesCount} remaining)
+                       </button>
+                     )}
+                   </div>
                 </div>
 
                 {/* Efficiency */}
