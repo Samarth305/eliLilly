@@ -10,7 +10,8 @@ import {
 import ReactMarkdown from 'react-markdown';
 
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const VITE_API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = VITE_API_URL.endsWith('/') ? VITE_API_URL.slice(0, -1) : VITE_API_URL;
 
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
