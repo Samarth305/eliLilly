@@ -94,9 +94,9 @@ h1, h2, h3, h4 {
 @utility no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-@utility no-scrollbar::-webkit-scrollbar {
-  display: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes slideDown {
