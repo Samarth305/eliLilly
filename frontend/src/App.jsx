@@ -10,6 +10,8 @@ import {
 import ReactMarkdown from 'react-markdown';
 
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 function App() {
   const [repoUrl, setRepoUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -59,7 +61,7 @@ function App() {
     setLoadingStep(steps[0]);
 
     // Open SSE connection
-    const eventSource = new EventSource(`http://localhost:8000/analyze-stream?request_id=${requestId}`);
+    const eventSource = new EventSource(`${API_BASE_URL}/analyze-stream?request_id=${requestId}`);
     
     eventSource.onmessage = (event) => {
       const message = event.data;
@@ -83,7 +85,7 @@ function App() {
 
     try {
       // In production, configure environment variables for the API base URL.
-      const response = await fetch('http://localhost:8000/analyze-repository', {
+      const response = await fetch(`${API_BASE_URL}/analyze-repository`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,7 +113,7 @@ function App() {
     if (!repoUrl.trim()) return;
     
     try {
-      const response = await fetch(`http://localhost:8000/clear-cache?repo_url=${encodeURIComponent(repoUrl)}`, {
+      const response = await fetch(`${API_BASE_URL}/clear-cache?repo_url=${encodeURIComponent(repoUrl)}`, {
         method: 'DELETE'
       });
       
