@@ -657,3 +657,51 @@ class StatisticsEngine:
         
         # Sort them back chronologically for the final output
         return sorted(significant_phases, key=lambda x: x["start"])
+    @staticmethod
+    def sample_commits(commits: List[Dict[str, Any]], target_total: int = 500) -> List[Dict[str, Any]]:
+        """
+        Smart Sampling Strategy:
+        1. Genesis: First 50 commits (Origins)
+        2. Evolution: Latest 300 commits (Current state)
+        3. High Impact: Top 150 intermediate commits (Architectural shifts)
+        """
+        if len(commits) <= target_total:
+            return commits
+
+        # Ensure they are sorted for slicing
+        # We don't use _get_sorted_commits because we don't want to re-parse everything yet if possible
+        # But we need some order. Let's assume input raw nodes from GraphQL are latest-first or we sort them.
+        # Actually GraphQL 'history' with 'first' is latest first.
+        
+        # Latest 300
+        latest_300 = commits[:300]
+        
+        # First 50 (Genesis)
+        remaining_after_latest = commits[300:]
+        if len(remaining_after_latest) <= 200:
+            return commits # Just return all if we are close to the limit
+            
+        genesis_50 = remaining_after_latest[-50:]
+        
+        # Intermediate 150 (High Impact)
+        intermediate = remaining_after_latest[:-50]
+        
+        # Sort intermediate by impact (additions + deletions)
+        def get_impact(c):
+            return c.get("additions", 0) + c.get("deletions", 0)
+            
+        high_impact_intermediate = sorted(intermediate, key=get_impact, reverse=True)[:150]
+        
+        # Combine and deduplicate just in case
+        sampled_shas = set()
+        sampled_commits = []
+        
+        for c in (latest_300 + genesis_50 + high_impact_intermediate):
+            sha = c.get("oid") or c.get("sha")
+            if sha not in sampled_shas:
+                sampled_shas.add(sha)
+                sampled_commits.append(c)
+                
+        # Return them sorted chronologically for the analysis engine
+        # We'll use the date string for a simple sort since we haven't parsed objects yet
+        return sorted(sampled_commits, key=lambda x: x.get("committedDate") or x.get("date") or "")

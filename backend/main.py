@@ -162,55 +162,69 @@ async def analyze_repository(request: AnalyzeRequest):
         releases_nodes = releases_data.get("nodes", [])
         
         await update_progress("Downloading commit history...")
-        # 2. Paginated GraphQL for large history
-        raw_commits = await github_service.fetch_commits_paginated_graphql(owner, repo, limit=2000)
+        # 2. Paginated GraphQL for large history (Now up to 10,000)
+        raw_commits = await github_service.fetch_commits_paginated_graphql(owner, repo, limit=10000)
         total_commits_count = len(raw_commits)
         
-        await update_progress("Analyzing commit patterns...")
+        await update_progress(f"Processing patterns for {total_commits_count} commits...")
         
         # 3. Smart Hybrid Enrichment
+        # First, pre-process ALL commits for statistics (lightweight)
+        all_processed_commits = []
+        for c in raw_commits:
+            author_data = c.get("author") or {}
+            user_data = author_data.get("user") or {}
+            
+            author_name = user_data.get("login") or author_data.get("name") or "Unknown"
+            message = c.get("message", "")
+            
+            classification = CommitAnalyzer.classify_commit({
+                "message": message, 
+                "files": [], 
+                "additions": c.get("additions", 0), 
+                "deletions": c.get("deletions", 0)
+            })
+            
+            all_processed_commits.append({
+                "sha": c.get("oid"),
+                "message": message,
+                "date": c.get("committedDate"),
+                "author": author_name,
+                "type": classification["category"],
+                "classification_confidence": classification["confidence"],
+                "additions": c.get("additions", 0),
+                "deletions": c.get("deletions", 0),
+                "files_changed": [], # Empty for base processed
+                "is_merge": c.get("parents", {}).get("totalCount", 0) > 1
+            })
+
+        # Now sample for DEEP enrichment (Story & Evolution)
+        sampled_raw = StatisticsEngine.sample_commits(raw_commits, target_total=500)
+        await update_progress(f"Performing deep analysis on {len(sampled_raw)} key events...")
+        
         detailed_commits = []
         sem = asyncio.Semaphore(40)
         
         # Calculate size threshold for outlier detection in history
         import statistics
-        sizes = [c.get("additions", 0) + c.get("deletions", 0) for c in raw_commits]
+        sizes = [c.get("additions", 0) + c.get("deletions", 0) for c in sampled_raw]
         threshold = statistics.mean(sizes) + 2.5 * statistics.stdev(sizes) if len(sizes) > 1 else 1000
         
-        async def enrich_commit(gql_commit: dict, force: bool = False):
+        async def enrich_commit(gql_commit: dict):
             sha = gql_commit.get("oid")
             size = gql_commit.get("additions", 0) + gql_commit.get("deletions", 0)
             
-            # Enrich if: it's in the recent 200 OR it's a huge outlier
-            if force or size > threshold or size > 1000:
-                async with sem:
-                    detail = await github_service.get_commit_details(owner, repo, sha)
-                    if detail:
-                        return CommitAnalyzer.extract_summary(detail)
+            # Enrich if: it's sampled (we force enrichment for the 500)
+            async with sem:
+                detail = await github_service.get_commit_details(owner, repo, sha)
+                if detail:
+                    return CommitAnalyzer.extract_summary(detail)
             
-            # Fallback for old/small commits: Use GraphQL metadata (no file lists)
-            message = gql_commit.get("message", "")
-            classification = CommitAnalyzer.classify_commit({"message": message, "files": [], "additions": gql_commit.get("additions", 0), "deletions": gql_commit.get("deletions", 0)})
-            
-            return {
-                "sha": sha,
-                "message": message,
-                "date": gql_commit.get("committedDate"),
-                "author": gql_commit.get("author", {}).get("user", {}).get("login") or gql_commit.get("author", {}).get("name", "Unknown"),
-                "type": classification["category"],
-                "classification_confidence": classification["confidence"],
-                "additions": gql_commit.get("additions", 0),
-                "deletions": gql_commit.get("deletions", 0),
-                "files_changed": [], # Empty for non-enriched
-                "is_merge": gql_commit.get("parents", {}).get("totalCount", 0) > 1
-            }
+            # This should rarely happen now that we only gather sampled ones
+            return None
         
-        # Execute enrichment tasks
-        tasks = []
-        for i, c in enumerate(raw_commits):
-            is_recent = i < 300 # Deeply analyze the 300 most recent
-            tasks.append(asyncio.create_task(enrich_commit(c, force=is_recent)))
-            
+        # Execute enrichment tasks for sampled commits
+        tasks = [asyncio.create_task(enrich_commit(c)) for c in sampled_raw]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         for res in results:
@@ -225,54 +239,45 @@ async def analyze_repository(request: AnalyzeRequest):
         contributors = await github_service.get_contributors(owner, repo)
         branches = await github_service.get_branches(owner, repo)
 
-        # 2. Parallel REST Enrichment (Fetch missing file lists)
-        filtered_commits = []
+        # 4. Filter ALL commits for statistical accuracy
+        all_filtered_commits = []
         bot_keywords = ["dependabot", "github-actions", "renovate", "sync-bot"]
-        for c in detailed_commits:
+        for c in all_processed_commits:
             author = c.get("author", "").lower()
-            files_changed = len(c.get("files_changed", []))
+            if c.get("is_merge"): continue
+            if any(bot in author for bot in bot_keywords): continue
+            if "bot" in author and author != "robot": continue
+            all_filtered_commits.append(c)
             
-            # Exclude merging (using is_merge flag), bot accounts, and 0-file changes
-            if c.get("is_merge"):
-                continue
-            if any(bot in author for bot in bot_keywords):
-                continue
-            if "bot" in author and author != "robot":
-                continue
-            if files_changed == 0:
-                continue
-            
-            filtered_commits.append(c)
-            
-        if not filtered_commits:
+        if not all_filtered_commits:
             raise HTTPException(status_code=400, detail="No valid commits found for analysis")
             
         await update_progress("Computing repository metrics...")
             
-        # 4. Statistical Analysis
-        frequencies = StatisticsEngine.compute_commit_frequency(filtered_commits)
+        # 5. Statistical Analysis (on full 10k dataset)
+        frequencies = StatisticsEngine.compute_commit_frequency(all_filtered_commits)
         bursts = StatisticsEngine.detect_bursts(frequencies.get("commits_per_week", {}))
-        inactivity = StatisticsEngine.detect_inactivity(filtered_commits)
-        dominance = StatisticsEngine.get_contributor_dominance(filtered_commits)
-        hot_modules = StatisticsEngine.detect_hot_modules(filtered_commits)
-        arch_changes = StatisticsEngine.detect_architecture_changes(filtered_commits)
-        commit_distribution = StatisticsEngine.calculate_commit_distribution(filtered_commits)
+        inactivity = StatisticsEngine.detect_inactivity(all_filtered_commits)
+        dominance = StatisticsEngine.get_contributor_dominance(all_filtered_commits)
+        hot_modules = StatisticsEngine.detect_hot_modules(all_filtered_commits)
+        arch_changes = StatisticsEngine.detect_architecture_changes(all_filtered_commits)
+        commit_distribution = StatisticsEngine.calculate_commit_distribution(all_filtered_commits)
         
-        # 5. Contributor Analysis
-        contributor_insights = ContributorAnalyzer.analyze(filtered_commits)
+        # 6. Contributor Analysis
+        contributor_insights = ContributorAnalyzer.analyze(all_filtered_commits)
         
-        # 6. Milestone Detection
-        milestones = MilestoneDetector.generate_milestones(filtered_commits, releases_nodes)
+        # 7. Milestone Detection (on sampled detailed commits)
+        milestones = MilestoneDetector.generate_milestones(detailed_commits, releases_nodes)
         
         await update_progress("Detecting development phases...")
         
-        # 7. Advanced Analytics
-        bus_factor = StatisticsEngine.calculate_bus_factor(filtered_commits)
-        maturity_score = StatisticsEngine.calculate_maturity_score(filtered_commits)
-        collaboration_intensity = StatisticsEngine.calculate_collaboration_score(filtered_commits)
-        development_phases = StatisticsEngine.detect_development_phases(filtered_commits)
-        efficiency_index = StatisticsEngine.calculate_efficiency_index(filtered_commits)
-        momentum = StatisticsEngine.calculate_momentum(filtered_commits)
+        # 8. Advanced Analytics (on full dataset)
+        bus_factor = StatisticsEngine.calculate_bus_factor(all_filtered_commits)
+        maturity_score = StatisticsEngine.calculate_maturity_score(all_filtered_commits)
+        collaboration_intensity = StatisticsEngine.calculate_collaboration_score(all_filtered_commits)
+        development_phases = StatisticsEngine.detect_development_phases(all_filtered_commits)
+        efficiency_index = StatisticsEngine.calculate_efficiency_index(all_filtered_commits)
+        momentum = StatisticsEngine.calculate_momentum(all_filtered_commits)
         
         await update_progress("Identifying architecture shifts...")
         
@@ -280,7 +285,8 @@ async def analyze_repository(request: AnalyzeRequest):
         story_signals = {
             "repository_name": repo_info.get("full_name"),
             "description": repo_info.get("description"),
-            "total_commits_analyzed": len(detailed_commits),
+            "total_commits_analyzed": len(all_processed_commits),
+            "sampled_commits_for_narrative": len(detailed_commits),
             "commit_frequencies": frequencies,
             "activity_bursts": bursts,
             "inactivity_periods": inactivity,

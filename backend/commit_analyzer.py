@@ -122,13 +122,14 @@ class CommitAnalyzer:
     @classmethod
     def extract_summary(cls, commit_detail: Dict[str, Any]) -> Dict[str, Any]:
         """Extract a simplified summary of a commit's details."""
-        commit = commit_detail.get('commit', {})
+        commit_obj = commit_detail.get('commit') or {}
+        author_obj = commit_obj.get('author') or {}
         stats = commit_detail.get('stats', {})
         files_list = commit_detail.get('files', [])
         
-        message = commit.get('message', '')
-        author = commit.get('author', {}).get('name', 'Unknown')
-        date = commit.get('author', {}).get('date', '')
+        message = commit_obj.get('message', '')
+        author = author_obj.get('name', 'Unknown')
+        date = author_obj.get('date', '')
         
         files_changed = [f.get('filename') for f in files_list] if files_list else []
         additions = stats.get('additions', 0)

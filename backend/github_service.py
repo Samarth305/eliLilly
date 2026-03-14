@@ -105,7 +105,7 @@ class GitHubService:
                 break
         return {}
 
-    async def fetch_commits_paginated_graphql(self, owner: str, repo: str, limit: int = 2000) -> List[Dict[str, Any]]:
+    async def fetch_commits_paginated_graphql(self, owner: str, repo: str, limit: int = 10000) -> List[Dict[str, Any]]:
         """Fetch commit history efficiently via GraphQL with retries."""
         query = """
         query($owner: String!, $repo: String!, $cursor: String, $pageSize: Int!) {
